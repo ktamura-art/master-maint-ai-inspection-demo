@@ -1,0 +1,939 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="robots" content="noindex,nofollow">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>マスタメンテ依頼 AI検査・例外管理デモ</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{font-family:"Segoe UI","Yu Gothic UI","Meiryo",sans-serif;font-size:14px;color:#323130;background:#faf9f8;-webkit-text-size-adjust:100%}
+  button,input,select,textarea{font-family:inherit}
+  a{color:#0078d4}
+  /* ===== ヘッダー ===== */
+  .suite{background:#0b1f3a;height:52px;display:flex;align-items:center;color:#fff;position:sticky;top:0;z-index:100;padding:0 14px;gap:10px}
+  .suite .brand{font-size:15px;font-weight:600}
+  .suite .tag{font-size:10.5px;background:#c55a11;padding:3px 9px;border-radius:10px;font-weight:700;letter-spacing:.3px}
+  .suite .right{margin-left:auto;font-size:11.5px;color:#9fb3cd}
+  /* ===== レイアウト ===== */
+  .shell{display:flex;min-height:calc(100vh - 52px)}
+  .demonav{width:256px;background:#f3f2f1;border-right:1px solid #e1dfdd;flex-shrink:0;padding:12px 0 40px}
+  .demonav .gh{font-size:10.5px;color:#797775;font-weight:700;letter-spacing:.5px;padding:14px 18px 6px}
+  .demonav .ni{padding:9px 16px;font-size:13px;cursor:pointer;display:flex;gap:9px;align-items:flex-start;line-height:1.45;border-left:3px solid transparent}
+  .demonav .ni:hover{background:#e8e6e4}
+  .demonav .ni.on{background:#fff;border-left-color:#c55a11;font-weight:600;color:#0b3d91}
+  .demonav .ni .no{color:#a19f9d;font-size:10.5px;font-weight:700;min-width:24px;padding-top:2px}
+  .demonav .ni.on .no{color:#c55a11}
+  .stage{flex:1;min-width:0;padding:0 0 70px}
+  @media(max-width:1000px){
+    .shell{flex-direction:column}
+    .demonav{width:100%;border-right:none;border-bottom:1px solid #e1dfdd;padding:6px 0 10px;display:flex;flex-wrap:wrap;gap:2px}
+    .demonav .gh{display:none}
+    .demonav .ni{border-left:none;border-bottom:3px solid transparent;padding:8px 11px;font-size:12px}
+    .demonav .ni.on{border-bottom-color:#c55a11}
+    .demonav .ni .no{display:none}
+  }
+  /* ===== 画面ヘッダー ===== */
+  .phead{background:#fff;border-bottom:1px solid #edebe9;padding:20px 28px 16px}
+  .phead .kicker{font-size:11px;color:#c55a11;font-weight:700;letter-spacing:.6px}
+  .phead h1{font-size:21px;margin-top:5px;color:#1a1a1a;line-height:1.35}
+  .phead p{font-size:13px;color:#605e5c;margin-top:8px;line-height:1.8;max-width:980px}
+  .wrap{padding:22px 28px 0;max-width:1400px}
+  @media(max-width:700px){.phead{padding:16px 16px 13px}.wrap{padding:16px 16px 0}.phead h1{font-size:18px}}
+  .sec{margin-bottom:28px}
+  .sec>h2{font-size:15px;font-weight:700;color:#0b3d91;border-left:4px solid #c55a11;padding-left:9px;margin-bottom:12px}
+  .note{font-size:12.5px;color:#605e5c;line-height:1.85;margin-top:8px}
+  .note b{color:#323130}
+  /* ===== 部品 ===== */
+  .card{border:1px solid #e1dfdd;border-radius:5px;background:#fff;padding:16px 17px}
+  .card h3{font-size:13.5px;margin-bottom:9px;color:#0b3d91}
+  .card p{font-size:12.5px;line-height:1.85;color:#484644}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  .grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+  .grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+  @media(max-width:1180px){.grid3,.grid4{grid-template-columns:1fr 1fr}}
+  @media(max-width:820px){.grid2,.grid3,.grid4{grid-template-columns:1fr}}
+  table{width:100%;border-collapse:collapse;background:#fff;font-size:12.5px}
+  th{background:#f3f2f1;text-align:left;padding:9px 11px;border:1px solid #e1dfdd;font-weight:700;color:#323130;white-space:nowrap}
+  td{padding:9px 11px;border:1px solid #e1dfdd;line-height:1.7;vertical-align:top}
+  .tblwrap{overflow-x:auto;border-radius:5px}
+  .pill{display:inline-block;font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px;white-space:nowrap}
+  .p-ok{background:#dff6dd;color:#0e700e}
+  .p-ng{background:#fde7e9;color:#a4262c}
+  .p-wr{background:#fff4ce;color:#8a6116}
+  .p-in{background:#e5f1fb;color:#005a9e}
+  .p-gy{background:#f3f2f1;color:#605e5c}
+  .kpi{border:1px solid #e1dfdd;border-radius:5px;background:#fff;padding:14px 15px}
+  .kpi .lb{font-size:11.5px;color:#605e5c}
+  .kpi .big{font-size:26px;font-weight:700;color:#0b3d91;margin-top:3px;line-height:1.1}
+  .kpi .big.or{color:#c55a11}
+  .kpi .sub{font-size:11px;color:#797775;margin-top:5px;line-height:1.6}
+  .callout{border-left:4px solid #c55a11;background:#fff8f3;padding:13px 15px;border-radius:0 4px 4px 0;font-size:12.5px;line-height:1.85}
+  .callout.blue{border-left-color:#0078d4;background:#f2f8fd}
+  .callout.red{border-left-color:#a4262c;background:#fdf3f4}
+  .callout b{color:#0b1f3a}
+  ul.li{padding-left:19px;font-size:12.5px;line-height:1.9;color:#484644}
+  ul.li li{margin-bottom:3px}
+  code{font-family:Consolas,"Courier New",monospace;background:#f3f2f1;padding:1px 5px;border-radius:3px;font-size:11.5px;color:#a4262c}
+  .src{font-size:11px;color:#797775;margin-top:7px;line-height:1.7}
+  .src a{color:#0078d4;text-decoration:none}
+  .src a:hover{text-decoration:underline}
+  /* ===== デモ ===== */
+  .demobar{background:#fff;border:1px solid #e1dfdd;border-radius:5px;padding:13px 15px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:16px}
+  .demobar label{font-size:12px;color:#605e5c;font-weight:600}
+  select.sel{border:1px solid #c8c6c4;border-radius:3px;padding:7px 9px;font-size:12.5px;background:#fff;min-width:260px;max-width:100%}
+  .btn{background:#0b3d91;color:#fff;border:none;border-radius:3px;padding:8px 18px;font-size:12.5px;font-weight:700;cursor:pointer}
+  .btn:hover{background:#0a3279}
+  .btn:disabled{background:#c8c6c4;cursor:not-allowed}
+  .btn.sec{background:#fff;color:#0b3d91;border:1px solid #c8c6c4}
+  .btn.sec:hover{background:#f3f2f1}
+  .steps{display:flex;gap:0;margin-bottom:16px;overflow-x:auto}
+  .step{flex:1;min-width:132px;border:1px solid #e1dfdd;border-right:none;background:#fff;padding:10px 12px;position:relative}
+  .step:last-child{border-right:1px solid #e1dfdd}
+  .step .sn{font-size:10.5px;color:#a19f9d;font-weight:700}
+  .step .st{font-size:12px;font-weight:600;margin-top:2px;color:#605e5c;line-height:1.4}
+  .step .sm{font-size:10.5px;color:#a19f9d;margin-top:4px;min-height:14px}
+  .step.run{background:#fff8f3;border-color:#c55a11}
+  .step.run .st{color:#c55a11}
+  .step.done{background:#f6fbf6}
+  .step.done .st{color:#0e700e}
+  .step.done .sn::after{content:" ✓";color:#0e700e}
+  .docpane{background:#fff;border:1px solid #e1dfdd;border-radius:5px;overflow:hidden}
+  .docpane .cap{background:#f3f2f1;border-bottom:1px solid #e1dfdd;font-size:11.5px;color:#605e5c;padding:7px 12px;font-weight:600;display:flex;justify-content:space-between;align-items:center;gap:8px}
+  .docbody{padding:14px 16px;font-size:12.5px;line-height:1.9}
+  .fax{background:#fdfdfb;border:1px dashed #c8c6c4;padding:14px 15px;font-family:"Yu Mincho",serif;font-size:12.5px;line-height:2}
+  .fax .ttl{text-align:center;font-weight:700;font-size:14px;letter-spacing:2px;margin-bottom:10px;border-bottom:1px solid #999;padding-bottom:6px}
+  .fax .row{display:flex;gap:8px;border-bottom:1px dotted #ddd;padding:2px 0}
+  .fax .k{width:150px;color:#605e5c;flex-shrink:0}
+  .fax .v{flex:1;font-weight:600}
+  .fax .hand{color:#1a4b8c;font-family:"Yu Gothic UI",sans-serif}
+  .json{background:#1e1e1e;color:#d4d4d4;font-family:Consolas,monospace;font-size:11.5px;line-height:1.75;padding:13px 14px;overflow-x:auto;white-space:pre}
+  .json .k{color:#9cdcfe}.json .s{color:#ce9178}.json .n{color:#b5cea8}.json .c{color:#6a9955}
+  .chk{display:flex;gap:9px;padding:8px 10px;border-bottom:1px solid #f3f2f1;font-size:12.5px;line-height:1.6;align-items:flex-start}
+  .chk:last-child{border-bottom:none}
+  .chk .ic{width:17px;height:17px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff;margin-top:1px}
+  .chk .ic.ok{background:#107c10}.chk .ic.ng{background:#a4262c}.chk .ic.wr{background:#c19c00}
+  .chk .cd{font-size:10.5px;color:#797775;font-weight:700;min-width:30px;margin-top:2px}
+  .chk .tx b{color:#323130}
+  .chk .tx small{display:block;color:#797775;font-size:11px;margin-top:2px;line-height:1.6}
+  .verdict{padding:14px 16px;border-radius:5px;font-size:13px;font-weight:700;line-height:1.7;display:flex;gap:11px;align-items:center}
+  .verdict.ng{background:#fde7e9;color:#a4262c;border:1px solid #f3c7cb}
+  .verdict.ok{background:#dff6dd;color:#0e700e;border:1px solid #bfe6bd}
+  .verdict .vi{font-size:22px}
+  .verdict small{display:block;font-weight:400;font-size:11.5px;color:#605e5c;margin-top:3px}
+  .queue{background:#fff;border:1px solid #e1dfdd;border-radius:5px;overflow:hidden}
+  .qrow{display:flex;gap:12px;padding:11px 14px;border-bottom:1px solid #f3f2f1;font-size:12.5px;align-items:center;flex-wrap:wrap}
+  .qrow:last-child{border-bottom:none}
+  .qrow .id{font-family:Consolas,monospace;font-weight:700;color:#0b3d91;min-width:78px}
+  .qrow .nm{flex:1;min-width:150px}
+  .qrow .nm small{display:block;color:#797775;font-size:11px;margin-top:2px}
+  .hidden{display:none}
+  .fadein{animation:fi .35s ease}
+  @keyframes fi{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:none}}
+  .legend{font-size:11.5px;color:#605e5c;display:flex;gap:14px;flex-wrap:wrap;margin-top:9px}
+  .legend span{display:flex;gap:5px;align-items:center}
+  .sw{width:11px;height:11px;border-radius:2px;display:inline-block}
+  .gantt td{padding:4px 6px}
+  .bar{height:19px;border-radius:3px;background:#0b3d91;color:#fff;font-size:10.5px;display:flex;align-items:center;padding:0 7px;white-space:nowrap}
+  .bar.or{background:#c55a11}
+  .bar.gy{background:#8a8886}
+  svg{max-width:100%;height:auto}
+</style>
+</head>
+<body>
+<div class="suite">
+  <div class="brand">マスタメンテ依頼　AI検査・例外管理デモ</div>
+  <div class="tag">報告用デモ</div>
+  <div class="right">Power Platform 実現方式検討　v1.0</div>
+</div>
+<div class="shell">
+  <nav class="demonav" id="nav">
+    <div class="gh">検討サマリー</div>
+    <div class="ni on" data-p="p1"><span class="no">01</span><span>結論：どこまでできるか</span></div>
+    <div class="ni" data-p="p2"><span class="no">02</span><span>現状と目指す姿</span></div>
+    <div class="ni" data-p="p3"><span class="no">03</span><span>実現アーキテクチャ</span></div>
+    <div class="gh">動くデモ</div>
+    <div class="ni" data-p="p4"><span class="no">04</span><span>AI検査の動作デモ</span></div>
+    <div class="ni" data-p="p5"><span class="no">05</span><span>例外管理キュー</span></div>
+    <div class="gh">判断材料</div>
+    <div class="ni" data-p="p6"><span class="no">06</span><span>できること／できないこと</span></div>
+    <div class="ni" data-p="p7"><span class="no">07</span><span>AIとルールの役割分担</span></div>
+    <div class="ni" data-p="p8"><span class="no">08</span><span>懸念点・技術制約</span></div>
+    <div class="ni" data-p="p9"><span class="no">09</span><span>PoCの進め方</span></div>
+  </nav>
+  <main class="stage" id="stage">
+
+<!-- ===== 01 結論 ===== -->
+<section id="p1" class="page">
+  <div class="phead">
+    <div class="kicker">01　結論</div>
+    <h1>Power Automate で「全件検査 → 例外だけ人が判断」は実現できる</h1>
+    <p>ただし成立するのは「検査・照合の自動化」までです。AIが依頼書を読んで基幹システムへ自動入力するところまで一気に描くと、画面操作(RPA)の保守という別物のコストが乗り、PoCが目的を見失います。<b>入力の自動化は目的ではなく、後段の別テーマとして切り離すことを推奨します。</b></p>
+  </div>
+  <div class="wrap">
+    <div class="sec">
+      <div class="grid3">
+        <div class="card" style="border-top:3px solid #107c10">
+          <h3>✔ 実現できる</h3>
+          <ul class="li">
+            <li>依頼書の読解と項目抽出（非定型・表記ゆれを含む）</li>
+            <li>必須項目の充足・型/桁・コード体系の全件チェック</li>
+            <li>マスタ存在・重複・論理矛盾の検出（DB照会）</li>
+            <li><b>「この依頼なら別項目も登録」の自動提示</b>（判定表による）</li>
+            <li>登録後の全件突合（依頼どおりに入ったかの照合）</li>
+            <li>要確認案件だけを人に回す例外キュー</li>
+          </ul>
+        </div>
+        <div class="card" style="border-top:3px solid #c19c00">
+          <h3>△ 条件付き</h3>
+          <ul class="li">
+            <li>受付システムからのデータ取り出し（API／CSV出力／DB参照のいずれかが必要）</li>
+            <li>基幹DBの<b>読み取り専用</b>アカウント発行（無い場合は夜間CSV出力で代替）</li>
+            <li>手書き・かすれFAXの読み取り精度（サンプル検証が必須）</li>
+            <li>基幹システムへの自動入力（API無ければRPA。別スコープ推奨）</li>
+          </ul>
+        </div>
+        <div class="card" style="border-top:3px solid #a4262c">
+          <h3>✘ AIでは解けない</h3>
+          <ul class="li">
+            <li><b>「何を登録すべきか」の業務ルールそのもの</b>。これは人が決めて台帳化する領域。AIに判定させると根拠が残らず監査に耐えない</li>
+            <li>属人知の自動獲得。ただし<b>過去実績からのルール候補抽出</b>はAIが得意（→ 07参照）</li>
+            <li>マスタ定義が無い状態での整合チェック</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <div class="sec">
+      <h2>なぜ「検査の自動化」だけで例外管理型に移行できるのか</h2>
+      <div class="callout blue">
+        現在のダブルチェックが回りきらない原因は<b>入力速度ではなく「全件を人が見る」構造</b>にあります。AIとルールが全件を検査して「要確認」だけを抜き出せば、人が見る母数が 100〜200件/月 → 数十件/月 に落ちます。<b>入力を自動化しなくても、その時点で例外管理型への転換は成立します。</b>読み取り（照合）だけなら基幹システムへの書き込み権限が不要で、社内調整の難易度も一段下がります。
+      </div>
+    </div>
+
+    <div class="sec">
+      <h2>想定効果（試算・実測値ではありません）</h2>
+      <div class="grid4">
+        <div class="kpi"><div class="lb">人が確認する件数</div><div class="big">全件 → 約3割</div><div class="sub">検査で「要確認」と判定された案件のみ。PoCの目標値</div></div>
+        <div class="kpi"><div class="lb">チェック観点の標準化</div><div class="big">判定表 1本</div><div class="sub">属人知を台帳化。共通チェックリストの実体になる</div></div>
+        <div class="kpi"><div class="lb">登録後照合</div><div class="big or">全件</div><div class="sub">現状は実施できていない工程。ここが最も効く</div></div>
+        <div class="kpi"><div class="lb">AI利用コスト</div><div class="big">月数百円〜数千円規模</div><div class="sub">月200件想定でのクレジット試算。費用は論点にならない（→08）</div></div>
+      </div>
+      <p class="note">※ 上記はいずれも<b>本デモ時点の試算であり、実測値ではありません</b>。実データでの検証（PoC）で確定させます。</p>
+    </div>
+  </div>
+</section>
+
+<!-- ===== 02 現状と目指す姿 ===== -->
+<section id="p2" class="page hidden">
+  <div class="phead">
+    <div class="kicker">02　現状と目指す姿</div>
+    <h1>「特定の人の注意力」に依存した検査から、仕組みによる全件検査へ</h1>
+    <p>月100〜200件のマスタメンテ依頼、依頼書は約20種類。1件で5〜10画面、複数システム・関連マスタへの登録が発生します。</p>
+  </div>
+  <div class="wrap">
+    <div class="sec">
+      <div class="grid2">
+        <div class="card" style="border-top:3px solid #a4262c">
+          <h3>現状（AS-IS）</h3>
+          <ul class="li">
+            <li>受付システムで依頼を受け、複数の基幹システムへ手入力</li>
+            <li>登録者のセルフチェック＋有識者のダブルチェック</li>
+            <li><b>共通チェックリストが無い</b></li>
+            <li>「この依頼の場合は別項目も登録する」が<b>経験者の知識に依存</b></li>
+            <li>件数が多く<b>ダブルチェックを実施しきれていない</b></li>
+            <li>登録後に「依頼どおりか」を突合する工程が無い</li>
+          </ul>
+        </div>
+        <div class="card" style="border-top:3px solid #107c10">
+          <h3>目指す姿（TO-BE）</h3>
+          <ul class="li">
+            <li>AIが依頼書を読解し、項目を構造化データに変換</li>
+            <li>ルール（判定表）が<b>全件を機械的に検査</b></li>
+            <li>関連登録が必要な条件を<b>自動で提示</b></li>
+            <li>要確認だけが例外キューに積まれ、人が判断</li>
+            <li>登録後に基幹DBと<b>全件突合</b>し、差異を差し戻し</li>
+            <li>検査の根拠・判定履歴が全件残り、監査に耐える</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+    <div class="sec">
+      <h2>設計上の最重要ポイント</h2>
+      <div class="callout">
+        「この依頼の場合は別項目も登録する」という業務知識を、<b>フローの中にIF文で書かず、「判定表」というデータとして外に持つ</b>こと。依頼書20種類に育てた時点で、IF文方式は保守不能になります（1フロー500アクション・ネスト8階層という物理的な上限もあります）。Power Automate は判定表を引くだけの薄い器にします。
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== 03 アーキテクチャ ===== -->
+<section id="p3" class="page hidden">
+  <div class="phead">
+    <div class="kicker">03　実現アーキテクチャ</div>
+    <h1>依頼を「1明細1行」に正規化し、4段の検査を通す</h1>
+    <p>中心に「依頼テーブル」を新設し、①AI読解 → ②ルール検査 → ③例外判断（人）→ ④登録後照合 の4段を回します。器は Power Automate ＋ Dataverse（または SharePoint リスト）です。</p>
+  </div>
+  <div class="wrap">
+    <div class="sec">
+      <div class="docpane">
+        <div class="cap"><b>全体アーキテクチャ</b><span>オレンジ＝AI／ネイビー＝ルール・決定的処理</span></div>
+        <div style="padding:16px;overflow-x:auto">
+        <svg viewBox="0 0 1180 520" xmlns="http://www.w3.org/2000/svg" style="min-width:900px">
+          <defs>
+            <marker id="ar" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><polygon points="0 0, 9 3.5, 0 7" fill="#8a8886"/></marker>
+            <marker id="aro" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><polygon points="0 0, 9 3.5, 0 7" fill="#c55a11"/></marker>
+          </defs>
+          <style>
+            .bx{fill:#fff;stroke:#c8c6c4;stroke-width:1.2;rx:5}
+            .t1{font:700 12.5px "Yu Gothic UI",sans-serif;fill:#0b1f3a}
+            .t2{font:11px "Yu Gothic UI",sans-serif;fill:#605e5c}
+            .t3{font:700 10.5px "Yu Gothic UI",sans-serif;fill:#fff}
+            .ln{stroke:#8a8886;stroke-width:1.3;fill:none;marker-end:url(#ar)}
+            .lno{stroke:#c55a11;stroke-width:1.5;fill:none;marker-end:url(#aro)}
+            .hd{font:700 11px "Yu Gothic UI",sans-serif;fill:#a19f9d;letter-spacing:.5px}
+          </style>
+          <!-- 列見出し -->
+          <text x="20" y="22" class="hd">① 受付・連携</text>
+          <text x="300" y="22" class="hd">② 正規化（中心テーブル）</text>
+          <text x="600" y="22" class="hd">③ 検査エンジン</text>
+          <text x="940" y="22" class="hd">④ 判断・照合</text>
+
+          <!-- 受付 -->
+          <rect x="20" y="40" width="200" height="66" class="bx"/>
+          <text x="34" y="62" class="t1">受付システム</text>
+          <text x="34" y="80" class="t2">依頼書 約20種類</text>
+          <text x="34" y="96" class="t2">月100〜200件</text>
+          <rect x="20" y="124" width="200" height="106" class="bx" fill="#f9f9f8"/>
+          <text x="34" y="146" class="t1">取り出し方式（要確認）</text>
+          <text x="34" y="166" class="t2">A. API 連携</text>
+          <text x="34" y="184" class="t2">B. CSV / Excel 出力</text>
+          <text x="34" y="202" class="t2">C. DB 直参照（GW経由）</text>
+          <text x="34" y="220" class="t2">D. メール通知＋添付</text>
+          <path d="M120 106 L120 124" class="ln"/>
+
+          <!-- 依頼テーブル -->
+          <rect x="300" y="40" width="210" height="190" class="bx" stroke="#0b3d91" stroke-width="2"/>
+          <rect x="300" y="40" width="210" height="26" fill="#0b3d91" rx="5"/>
+          <rect x="300" y="56" width="210" height="10" fill="#0b3d91"/>
+          <text x="312" y="58" class="t3">依頼テーブル（Dataverse）</text>
+          <text x="314" y="88" class="t2">ヘッダ：依頼No／依頼書種別</text>
+          <text x="314" y="106" class="t2">　　　　／申請者／受付日</text>
+          <text x="314" y="128" class="t2">明細：1登録先＝1行</text>
+          <text x="314" y="146" class="t2">　　　対象システム／マスタ</text>
+          <text x="314" y="164" class="t2">　　　項目名／値／根拠</text>
+          <text x="314" y="186" class="t2">状態：検査中／要確認／</text>
+          <text x="314" y="204" class="t2">　　　登録待ち／照合済</text>
+          <text x="314" y="222" class="t2" fill="#c55a11">※ 承認1回で全登録先を展開</text>
+          <path d="M220 136 L300 136" class="ln"/>
+
+          <!-- AI読解 -->
+          <rect x="600" y="40" width="270" height="92" class="bx" stroke="#c55a11" stroke-width="2" fill="#fff8f3"/>
+          <rect x="600" y="40" width="270" height="26" fill="#c55a11" rx="5"/>
+          <rect x="600" y="56" width="270" height="10" fill="#c55a11"/>
+          <text x="612" y="58" class="t3">AI：読解・抽出（ここだけAI）</text>
+          <text x="614" y="88" class="t2">非定型文・手書き・表記ゆれを</text>
+          <text x="614" y="106" class="t2">固定JSONスキーマに変換</text>
+          <text x="614" y="124" class="t2">＋信頼度／根拠箇所を返す</text>
+          <path d="M510 100 L600 90" class="lno"/>
+
+          <!-- ルール検査 -->
+          <rect x="600" y="150" width="270" height="150" class="bx" stroke="#0b3d91" stroke-width="2"/>
+          <rect x="600" y="150" width="270" height="26" fill="#0b3d91" rx="5"/>
+          <rect x="600" y="166" width="270" height="10" fill="#0b3d91"/>
+          <text x="612" y="168" class="t3">ルール検査（Power Automate / SQL）</text>
+          <text x="614" y="198" class="t2">R1 必須項目の充足</text>
+          <text x="614" y="216" class="t2">R2 型・桁・コード体系</text>
+          <text x="614" y="234" class="t2">R3 マスタ存在／重複</text>
+          <text x="614" y="252" class="t2">R4 論理矛盾（相関チェック）</text>
+          <text x="614" y="270" class="t2" fill="#c55a11">R5 関連登録の展開 ← 本丸</text>
+          <text x="614" y="290" class="t2">R6 承認経路・権限</text>
+          <path d="M510 170 L600 200" class="ln"/>
+
+          <!-- 判定表 -->
+          <rect x="600" y="320" width="270" height="86" class="bx" fill="#f9f9f8"/>
+          <text x="614" y="342" class="t1">判定表（ルール台帳）</text>
+          <text x="614" y="362" class="t2">条件 → 必要な登録先・項目</text>
+          <text x="614" y="380" class="t2">依頼書種別ごとに1シート</text>
+          <text x="614" y="398" class="t2" fill="#c55a11">※ 属人知の実体。データで保持</text>
+          <path d="M735 320 L735 300" class="ln"/>
+
+          <!-- 判定 -->
+          <rect x="940" y="40" width="220" height="70" class="bx"/>
+          <text x="954" y="62" class="t1">判定結果</text>
+          <text x="954" y="82" class="t2">OK ／ 要確認（理由コード付）</text>
+          <text x="954" y="100" class="t2">判定根拠を全件保存</text>
+          <path d="M870 190 L905 190 L905 75 L940 75" class="ln"/>
+
+          <!-- 例外キュー -->
+          <rect x="940" y="130" width="220" height="86" class="bx" stroke="#c19c00" stroke-width="2" fill="#fffdf5"/>
+          <text x="954" y="152" class="t1">例外キュー（人が判断）</text>
+          <text x="954" y="172" class="t2">承認アクション or Power Apps</text>
+          <text x="954" y="190" class="t2">差し戻し／補記／登録指示</text>
+          <text x="954" y="208" class="t2" fill="#c55a11">人が見るのは要確認のみ</text>
+          <path d="M1050 110 L1050 130" class="ln"/>
+
+          <!-- 登録 -->
+          <rect x="940" y="236" width="220" height="74" class="bx"/>
+          <text x="954" y="258" class="t1">基幹システムへ登録</text>
+          <text x="954" y="278" class="t2">当面は人が入力（現行どおり）</text>
+          <text x="954" y="296" class="t2">将来：API or RPA（別スコープ）</text>
+          <path d="M1050 216 L1050 236" class="ln"/>
+
+          <!-- 登録後照合 -->
+          <rect x="600" y="430" width="560" height="74" class="bx" stroke="#0b3d91" stroke-width="2"/>
+          <rect x="600" y="430" width="560" height="26" fill="#0b3d91" rx="5"/>
+          <rect x="600" y="446" width="560" height="10" fill="#0b3d91"/>
+          <text x="612" y="448" class="t3">⑤ 登録後照合（全件）　基幹DBを読み、依頼内容と突合 → 差異は例外キューへ差し戻し</text>
+          <text x="614" y="478" class="t2">オンプレDBは ストアドプロシージャ＋オンプレミスデータゲートウェイ（読み取り専用アカウント）／不可なら夜間CSV出力で代替</text>
+          <text x="614" y="496" class="t2" fill="#c55a11">※ 現状は実施できていない工程。ここが例外管理型への移行を担保する</text>
+          <path d="M1050 310 L1050 400 L880 400 L880 430" class="ln"/>
+          <path d="M600 467 L540 467 L540 250 L510 250" class="ln"/>
+
+          <!-- 基幹システム群 -->
+          <rect x="20" y="300" width="200" height="120" class="bx" fill="#f9f9f8"/>
+          <text x="34" y="322" class="t1">基幹システム群</text>
+          <text x="34" y="344" class="t2">システムA（販売）</text>
+          <text x="34" y="362" class="t2">システムB（会計）</text>
+          <text x="34" y="380" class="t2">システムC（生産）</text>
+          <text x="34" y="400" class="t2">＋ 関連マスタ各種</text>
+          <text x="34" y="416" class="t2" fill="#c55a11">読み取りのみで照合は成立</text>
+          <path d="M600 467 L300 467 L300 400 L220 400" class="ln"/>
+        </svg>
+        </div>
+      </div>
+      <p class="note"><b>読み方：</b>オレンジの箱はAIが担う唯一の工程です。判定・照合はすべてネイビー（ルール・決定的処理）で行い、AIに合否を決めさせません。理由は 07 を参照してください。</p>
+    </div>
+
+    <div class="sec">
+      <h2>取り出し方式の選定（受付システム側）</h2>
+      <div class="tblwrap"><table>
+        <tr><th style="width:120px">方式</th><th>実現性</th><th>向き／不向き</th></tr>
+        <tr><td><b>A. API連携</b></td><td><span class="pill p-ok">最良</span></td><td>リアルタイム。受付システムにAPIがあれば第一候補。カスタムコネクタ化して再利用できる</td></tr>
+        <tr><td><b>B. CSV/Excel出力</b></td><td><span class="pill p-ok">現実解</span></td><td>SharePointに置いて定期実行で取り込み。<b>ゲートウェイ不要で社内調整が最も通りやすい</b>。分単位の即時性は出ない</td></tr>
+        <tr><td><b>C. DB直参照</b></td><td><span class="pill p-wr">条件付</span></td><td>オンプレミスデータゲートウェイ＋読み取り専用アカウントが必要。情シス承認のハードルが最大</td></tr>
+        <tr><td><b>D. メール通知＋添付</b></td><td><span class="pill p-wr">代替</span></td><td>他が塞がれた場合の逃げ道。取りこぼし・重複の制御を自前で作る必要があり非推奨</td></tr>
+      </table></div>
+      <p class="note">PoC段階では <b>B（CSV/Excel出力）で始め、本番でA/Cに寄せる</b>のが最短です。取り出し方式は検査ロジックに影響しないため、後から差し替えられる設計にします。</p>
+    </div>
+  </div>
+</section>
+
+<!-- ===== 04 デモ ===== -->
+<section id="p4" class="page hidden">
+  <div class="phead">
+    <div class="kicker">04　動くデモ</div>
+    <h1>依頼書1件が検査を通る様子</h1>
+    <p>サンプル依頼を選んで「検査を実行」を押すと、①受付取込 → ②AI読解 → ③ルール検査 → ④判定 の順に処理が進みます。<b>本デモの判定結果はサンプルデータによる固定応答であり、実際のAI出力ではありません。</b>画面遷移と判定の出方をご確認いただくためのものです。</p>
+  </div>
+  <div class="wrap">
+    <div class="demobar">
+      <label for="reqsel">サンプル依頼</label>
+      <select class="sel" id="reqsel"></select>
+      <button class="btn" id="runbtn">検査を実行</button>
+      <button class="btn sec" id="resetbtn">リセット</button>
+      <span style="font-size:11.5px;color:#797775" id="runstat">未実行</span>
+    </div>
+    <div class="steps" id="steps">
+      <div class="step" data-s="0"><div class="sn">STEP 1</div><div class="st">受付データ取込</div><div class="sm"></div></div>
+      <div class="step" data-s="1"><div class="sn">STEP 2</div><div class="st">AI：読解・項目抽出</div><div class="sm"></div></div>
+      <div class="step" data-s="2"><div class="sn">STEP 3</div><div class="st">ルール検査（R1-R6）</div><div class="sm"></div></div>
+      <div class="step" data-s="3"><div class="sn">STEP 4</div><div class="st">判定・振り分け</div><div class="sm"></div></div>
+      <div class="step" data-s="4"><div class="sn">STEP 5</div><div class="st">登録後照合</div><div class="sm"></div></div>
+    </div>
+
+    <div class="grid2" style="align-items:start">
+      <div>
+        <div class="docpane" style="margin-bottom:16px">
+          <div class="cap"><b>受け付けた依頼書（イメージ）</b><span id="docmeta"></span></div>
+          <div class="docbody"><div class="fax" id="faxbox"></div></div>
+        </div>
+      </div>
+      <div>
+        <div class="docpane hidden" id="jsonpane" style="margin-bottom:16px">
+          <div class="cap"><b>STEP 2　AIが抽出した構造化データ</b><span>固定JSONスキーマ／信頼度付き</span></div>
+          <div class="json" id="jsonbox"></div>
+          <div style="padding:10px 14px;font-size:11.5px;color:#605e5c;line-height:1.75;border-top:1px solid #f3f2f1">
+            AIの役割はここまでです。<b>抽出・正規化・信頼度の提示のみを行い、合否は判定しません。</b>信頼度が閾値を下回った項目は、それ自体が「要確認」の理由になります。
+          </div>
+        </div>
+        <div class="docpane hidden" id="chkpane" style="margin-bottom:16px">
+          <div class="cap"><b>STEP 3　ルール検査の結果</b><span id="chkmeta"></span></div>
+          <div id="chkbox"></div>
+        </div>
+        <div id="verdictbox" class="hidden" style="margin-bottom:16px"></div>
+        <div class="docpane hidden" id="matchpane">
+          <div class="cap"><b>STEP 5　登録後照合（参考表示）</b><span>基幹DBとの突合</span></div>
+          <div id="matchbox" style="padding:12px 14px"></div>
+        </div>
+      </div>
+    </div>
+    <div class="sec" style="margin-top:26px">
+      <h2>このデモで見ていただきたい点</h2>
+      <div class="grid3">
+        <div class="card"><h3>① 関連登録の自動提示</h3><p>「与信区分＝有 なら与信マスタにも登録」のような、<b>依頼書に書かれていない必要作業</b>を判定表から導いて提示します。今まで経験者しか気づけなかった部分です。</p></div>
+        <div class="card"><h3>② 判定根拠が全件残る</h3><p>どのルールで引っかかったかが理由コード付きで記録されます。「なぜ要確認なのか」を人が説明できる状態になり、監査・教育にも使えます。</p></div>
+        <div class="card"><h3>③ AIは判定していない</h3><p>AIは読んで構造化するだけ。合否はすべてルールが決めます。AIの出力が揺れても<b>判定結果は揺れません</b>。</p></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== 05 例外キュー ===== -->
+<section id="p5" class="page hidden">
+  <div class="phead">
+    <div class="kicker">05　例外管理</div>
+    <h1>人が見るのは「要確認」だけになる</h1>
+    <p>全件検査の結果、OK判定は登録工程へ流れ、要確認だけが例外キューに積まれます。以下は月内の想定イメージです（サンプル表示）。</p>
+  </div>
+  <div class="wrap">
+    <div class="sec">
+      <div class="grid4">
+        <div class="kpi"><div class="lb">今月の受付件数</div><div class="big">168<span style="font-size:14px">件</span></div><div class="sub">依頼書20種類のうち対象2種＝62件</div></div>
+        <div class="kpi"><div class="lb">自動OK（人の確認不要）</div><div class="big">44<span style="font-size:14px">件</span></div><div class="sub">対象2種のうち 71%</div></div>
+        <div class="kpi"><div class="lb">要確認（人が判断）</div><div class="big or">18<span style="font-size:14px">件</span></div><div class="sub">要確認率 29%　目標30%以下</div></div>
+        <div class="kpi"><div class="lb">見逃し（人が後から指摘）</div><div class="big">0<span style="font-size:14px">件</span></div><div class="sub">並走期間中の実績。ここが移行可否の唯一の条件</div></div>
+      </div>
+      <p class="note">※ 数値はデモ用のサンプルです。実測値ではありません。</p>
+    </div>
+    <div class="sec">
+      <h2>例外キュー（要確認案件）</h2>
+      <div class="queue" id="queue"></div>
+      <div class="legend">
+        <span><i class="sw" style="background:#a4262c"></i>E＝エラー（登録前に解消必須）</span>
+        <span><i class="sw" style="background:#c19c00"></i>W＝警告（自動補正済み・確認のみ）</span>
+        <span><i class="sw" style="background:#0078d4"></i>M＝照合差異（登録後に検出）</span>
+      </div>
+    </div>
+    <div class="sec">
+      <h2>理由コード体系（例）</h2>
+      <div class="tblwrap"><table>
+        <tr><th style="width:70px">コード</th><th style="width:170px">区分</th><th>内容</th><th style="width:140px">判定担当</th></tr>
+        <tr><td><b>E01</b></td><td>必須項目未記入</td><td>依頼書の必須欄が空欄、またはAIが読み取れなかった</td><td>ルール</td></tr>
+        <tr><td><b>E02</b></td><td>コード体系違反</td><td>桁数・使用可能文字・採番規則に反する</td><td>ルール</td></tr>
+        <tr><td><b>E03</b></td><td>マスタ不整合</td><td>参照先マスタに存在しない／重複候補あり</td><td>ルール（SQL照会）</td></tr>
+        <tr><td><b>E04</b></td><td>論理矛盾</td><td>項目間の組合せが規定外（締日と支払サイト等）</td><td>ルール（相関表）</td></tr>
+        <tr><td><b>E05</b></td><td><b>関連登録漏れ</b></td><td>条件成立時に必要な別システム・別マスタへの登録指示が無い</td><td>ルール（判定表）</td></tr>
+        <tr><td><b>W01</b></td><td>表記ゆれ自動補正</td><td>半角カナ・全角英数・法人格表記を正規化した（確認のみ）</td><td>AI＋辞書</td></tr>
+        <tr><td><b>W02</b></td><td>信頼度不足</td><td>AIの抽出信頼度が閾値未満。原本確認が必要</td><td>AI（閾値判定）</td></tr>
+        <tr><td><b>M01</b></td><td>照合差異</td><td>登録後の基幹データが依頼内容と一致しない</td><td>ルール（登録後照合）</td></tr>
+      </table></div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== 06 できること／できないこと ===== -->
+<section id="p6" class="page hidden">
+  <div class="phead">
+    <div class="kicker">06　判定マトリクス</div>
+    <h1>Power Automate で「できること／できないこと」</h1>
+    <p>◎＝標準機能で実現可　○＝設定・設計次第で実現可　△＝条件付き（前提の確認が必要）　×＝Power Automate 単体では不可</p>
+  </div>
+  <div class="wrap">
+    <div class="sec">
+      <div class="tblwrap"><table>
+        <tr><th style="width:52px">判定</th><th style="width:230px">やりたいこと</th><th>実現方式</th><th style="width:230px">前提・注意</th></tr>
+        <tr><td style="text-align:center"><b style="color:#107c10;font-size:16px">◎</b></td><td>受付データを取り込み、依頼テーブルに正規化</td><td>Excel／SharePoint／SQL／HTTP の各コネクタ＋定期実行トリガー</td><td>受付システム側に出力口が必要（→03）</td></tr>
+        <tr><td style="text-align:center"><b style="color:#107c10;font-size:16px">◎</b></td><td>必須項目・型・桁・コード体系のチェック</td><td>フロー内の条件分岐＋正規表現。判定表をデータで保持</td><td>マスタ定義書が必要</td></tr>
+        <tr><td style="text-align:center"><b style="color:#107c10;font-size:16px">◎</b></td><td>要確認案件だけを人に回す（例外キュー）</td><td>承認アクション／Teams通知／Power Apps 画面</td><td>Power Apps を使う場合は別ライセンス</td></tr>
+        <tr><td style="text-align:center"><b style="color:#107c10;font-size:16px">◎</b></td><td>判定根拠・履歴を全件保存</td><td>Dataverse（または SharePoint リスト）に判定ログを追記</td><td>監査要件があれば Dataverse 推奨</td></tr>
+        <tr><td style="text-align:center"><b style="color:#0078d4;font-size:16px">○</b></td><td>依頼書の読解・項目抽出（非定型文・表記ゆれ）</td><td>AIプロンプト（固定JSONスキーマ）／ドキュメント処理モデル</td><td>クレジット制度が2026/11に変更（→08）</td></tr>
+        <tr><td style="text-align:center"><b style="color:#0078d4;font-size:16px">○</b></td><td><b>関連登録の展開</b>（この依頼なら別マスタも必要）</td><td>判定表（条件→必要登録先）をデータで持ち、フローは引くだけ</td><td><b>判定表の整備が最大の工数</b>。IF文で書くと破綻</td></tr>
+        <tr><td style="text-align:center"><b style="color:#0078d4;font-size:16px">○</b></td><td>マスタ存在・重複・論理矛盾の検出</td><td>SQL 照会（ストアドプロシージャ）で決定的に判定</td><td>基幹DBへの読み取り権限が必要</td></tr>
+        <tr><td style="text-align:center"><b style="color:#0078d4;font-size:16px">○</b></td><td>登録後照合（依頼どおりに入ったかの全件突合）</td><td>基幹DBを読んで依頼テーブルと突合、差異を差し戻し</td><td>依頼と登録結果を結ぶキーが必要</td></tr>
+        <tr><td style="text-align:center"><b style="color:#c19c00;font-size:16px">△</b></td><td>手書き・かすれFAX等の読み取り</td><td>ドキュメント処理モデル／AIプロンプトの画像入力</td><td><b>精度はサンプル検証必須。</b>宣言せず実測で示す</td></tr>
+        <tr><td style="text-align:center"><b style="color:#c19c00;font-size:16px">△</b></td><td>受付システムからのリアルタイム連携</td><td>API があればカスタムコネクタ、無ければ定期取込</td><td>APIの有無は要確認</td></tr>
+        <tr><td style="text-align:center"><b style="color:#c19c00;font-size:16px">△</b></td><td>基幹システムへの自動入力（API有り）</td><td>HTTP／カスタムコネクタで登録</td><td>更新権限・トランザクション・ロールバック設計が別途必要</td></tr>
+        <tr><td style="text-align:center"><b style="color:#a4262c;font-size:16px">×</b></td><td>基幹システムへの自動入力（API無し）</td><td>Power Automate for desktop（RPA）が必要</td><td>Premium ライセンス＋画面変更時の保守。<b>別スコープ推奨</b></td></tr>
+        <tr><td style="text-align:center"><b style="color:#a4262c;font-size:16px">×</b></td><td>業務ルールをAIに判断させる</td><td>—</td><td>根拠が残らず再現性も無い。<b>ルール化して台帳で持つ</b></td></tr>
+        <tr><td style="text-align:center"><b style="color:#a4262c;font-size:16px">×</b></td><td>マスタ定義が未整備のままでの整合チェック</td><td>—</td><td>何が正しいかの定義が先。ここは業務側の作業</td></tr>
+      </table></div>
+    </div>
+    <div class="sec">
+      <h2>スコープの線引き（提案）</h2>
+      <div class="grid2">
+        <div class="card" style="border-top:3px solid #107c10"><h3>今回のスコープに入れる</h3><ul class="li"><li>依頼書 1〜2種類を対象にした全件検査</li><li>判定表（共通チェックリスト）の作成</li><li>例外キューの運用</li><li>登録後照合</li></ul></div>
+        <div class="card" style="border-top:3px solid #8a8886"><h3>今回は入れない（将来テーマ）</h3><ul class="li"><li>基幹システムへの自動入力（RPA / API）</li><li>依頼書20種類すべてへの展開</li><li>受付システム自体の改修</li><li>マスタ統合・名寄せ</li></ul></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== 07 役割分担 ===== -->
+<section id="p7" class="page hidden">
+  <div class="phead">
+    <div class="kicker">07　役割分担</div>
+    <h1>AIに合否を決めさせない</h1>
+    <p>今回いちばん重要な設計判断です。AIは「読む・拾う・候補を出す」までで、判定は必ずルールが行います。</p>
+  </div>
+  <div class="wrap">
+    <div class="sec">
+      <div class="tblwrap"><table>
+        <tr><th style="width:250px">工程</th><th style="width:130px">担当</th><th>理由</th></tr>
+        <tr><td>依頼書の読解・項目抽出<br><small style="color:#797775">非定型の文章・手書き・表記ゆれ</small></td><td><span class="pill" style="background:#fff4ce;color:#8a6116">AI</span></td><td>ルールでは書けない。<b>ここだけがAIの必然性がある領域</b></td></tr>
+        <tr><td>抽出値の正規化<br><small style="color:#797775">全角半角・会社名の揺れ・日付</small></td><td><span class="pill" style="background:#fff4ce;color:#8a6116">AI＋辞書</span></td><td>AIで寄せて、辞書で確定させる</td></tr>
+        <tr><td>必須項目の充足、型・桁・コード体系</td><td><span class="pill p-in">ルール</span></td><td>決定的に判定でき、証跡が残る</td></tr>
+        <tr><td>マスタ存在・重複・親子整合（論理矛盾）</td><td><span class="pill p-in">ルール（SQL）</span></td><td><b>AIに聞くと事実でない回答が混じる。DBに聞けば確実</b></td></tr>
+        <tr><td>関連登録の展開（別システム・関連マスタ）</td><td><span class="pill p-in">ルール（判定表）</span></td><td>業務知識の実体。<b>ここを台帳化することが本丸</b></td></tr>
+        <tr><td>登録後の照合</td><td><span class="pill p-in">ルール（SQL）</span></td><td>全件突合。AI不要</td></tr>
+        <tr><td>例外の要約・人への説明文生成</td><td><span class="pill" style="background:#fff4ce;color:#8a6116">AI</span></td><td>判断はしない。読みやすくするだけ</td></tr>
+        <tr style="background:#fff8f3"><td><b>判定表の「初版づくり」</b><br><small style="color:#797775">過去の依頼書 × 実際の登録結果</small></td><td><span class="pill" style="background:#c55a11;color:#fff">AI（オフライン）</span></td><td><b>今回いちばん費用対効果が高い使い方。</b>「この依頼のときは別項目も登録されていた」パターンをAIに抽出させ、<b>有識者は○×を付けるだけ</b>にする</td></tr>
+      </table></div>
+    </div>
+    <div class="sec">
+      <h2>判定表の初版をAIで作る（推奨アプローチ）</h2>
+      <div class="grid3">
+        <div class="card"><h3>従来のやり方</h3><p>ベテランにヒアリングして チェックリストを作る。→ 本人も無意識に判断しているため<b>必ず抜ける</b>。時間もかかる。</p></div>
+        <div class="card" style="border-top:3px solid #c55a11"><h3>提案するやり方</h3><p>過去の依頼書と、それに対して実際に登録されたデータを突き合わせ、<b>「依頼書に書かれていないのに登録されている項目」をAIに列挙させる</b>。それが属人知の正体です。</p></div>
+        <div class="card"><h3>確定のさせ方</h3><p>AIが出した候補に有識者が○×と条件を付けて確定。<b>運用時はその台帳をルールが引くだけ</b>なので、判定は毎回同じ結果になります。</p></div>
+      </div>
+      <div class="callout" style="margin-top:14px">
+        この方式なら、棚卸しの工数が「ゼロから書き出す」から「出てきた候補を承認する」に変わります。<b>PoCの2〜4週目の主作業はここ</b>です。
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== 08 懸念点・制約 ===== -->
+<section id="p8" class="page hidden">
+  <div class="phead">
+    <div class="kicker">08　懸念点・技術制約</div>
+    <h1>設計を左右する制約（公式ドキュメント確認済み）</h1>
+    <p>「できます」で済ませず、事前に潰しておくべき制約を挙げます。出典は各項目に付記しています（2026年9月時点の Microsoft Learn 記載内容）。</p>
+  </div>
+  <div class="wrap">
+    <div class="sec">
+      <h2>最優先で押さえるべき3点</h2>
+      <div class="callout red" style="margin-bottom:12px">
+        <b>① オンプレミスSQL Serverに対して「SQLクエリの実行(V2)」は使えません。</b><br>
+        公式に「オンプレミスのSQL Serverまたはゲートウェイとの接続ではサポートされていません」と明記されています。→ <b>ストアドプロシージャの実行(V2)が本線</b>になります。さらにゲートウェイ経由のストアドには「OUTPUTパラメーターの出力値は返されません」「最初の結果セットのみが返されます」という制限があるため、<b>照合ロジックはストアド内に寄せ、結果を1つの結果セットで返す設計が必須</b>です。
+        <div class="src">出典：<a href="https://learn.microsoft.com/ja-jp/connectors/sql/" target="_blank" rel="noopener">SQL Server コネクタ（Microsoft Learn）</a> ／ 既知の問題と制限事項</div>
+      </div>
+      <div class="callout red" style="margin-bottom:12px">
+        <b>② AI Builder クレジットの制度がPoC期間中に変わります。</b><br>
+        Power Automate Premium に付属する月5,000クレジットは <b>2026年11月1日に廃止</b>、新規のお客様は AI Builder 容量アドオンを購入できず <b>Copilot クレジット</b>へ移行、と公式に明記されています。<b>見積りは最初から Copilot クレジット建てで組むべき</b>です。
+        <div class="src">出典：<a href="https://learn.microsoft.com/ja-jp/ai-builder/credit-management" target="_blank" rel="noopener">ライセンスとAI Builder クレジット（Microsoft Learn）</a></div>
+      </div>
+      <div class="callout" style="margin-bottom:4px">
+        <b>③ 1フロー500アクション・ネスト8階層の上限があります。</b><br>
+        依頼書20種類分の判定を1フローに書くと確実に破綻します。<b>判定表をデータで持ち、依頼書種別ごとに子フローへ分割</b>する前提で設計します。
+        <div class="src">出典：<a href="https://learn.microsoft.com/ja-jp/power-automate/limits-and-config" target="_blank" rel="noopener">クラウドフローの制限事項（Microsoft Learn）</a></div>
+      </div>
+    </div>
+
+    <div class="sec">
+      <h2>制約一覧</h2>
+      <div class="tblwrap"><table>
+        <tr><th style="width:190px">項目</th><th style="width:150px">制約値</th><th>設計への影響</th></tr>
+        <tr><td>SQLクエリの実行(V2)</td><td><span class="pill p-ng">オンプレ不可</span></td><td>ストアドプロシージャ方式に。DBA側の作業が発生する</td></tr>
+        <tr><td>SQL実行のタイムアウト</td><td>110秒</td><td>全件突合は差分・分割実行にする</td></tr>
+        <tr><td>オンプレ経由の要求／応答サイズ</td><td>2MB ／ 8MB</td><td>一度に大量行を返さない。件数を絞って回す</td></tr>
+        <tr><td>1フローあたりアクション数</td><td>500</td><td>子フロー分割が前提</td></tr>
+        <tr><td>アクションのネスト深度</td><td>8</td><td>条件分岐の入れ子で業務ルールを表現しない</td></tr>
+        <tr><td>Apply to each の項目数</td><td>100,000</td><td>今回の件数では問題なし</td></tr>
+        <tr><td>1日あたりアクション数</td><td>Premium：1ユーザー40,000<br>Process：25万</td><td>月200件×数百アクションなら<b>余裕あり。ボトルネックにならない</b></td></tr>
+        <tr><td>フロー実行の保持期間</td><td>30日</td><td>判定履歴は別途 Dataverse に保存する</td></tr>
+        <tr><td>SQL Server コネクタ</td><td><span class="pill p-wr">Premium</span></td><td>Power Automate Premium ライセンスが必要</td></tr>
+        <tr><td>オンプレDB接続</td><td>データゲートウェイ必須</td><td>設置・運用の合意が必要</td></tr>
+      </table></div>
+    </div>
+
+    <div class="sec">
+      <h2>AI利用コストの試算</h2>
+      <div class="grid2">
+        <div class="card">
+          <h3>クレジット消費レート（公式）</h3>
+          <ul class="li">
+            <li>テキスト／生成AIツール（基本）：1Kトークンあたり <b>0.1</b> Copilotクレジット</li>
+            <li>同（標準）：1Kトークンあたり <b>1.5</b></li>
+            <li>同（プレミアム）：1Kトークンあたり <b>10</b></li>
+            <li>コンテンツ処理ツール：1ページあたり <b>8</b></li>
+            <li>システムメタプロンプト：約1,200トークン（毎回加算）</li>
+          </ul>
+          <div class="src">出典：<a href="https://learn.microsoft.com/ja-jp/ai-builder/message-management" target="_blank" rel="noopener">ライセンスとCopilot クレジット</a> ／ <a href="https://learn.microsoft.com/ja-jp/ai-builder/licensing-prompt-tokens" target="_blank" rel="noopener">プロンプト トークン</a></div>
+        </div>
+        <div class="card" style="border-top:3px solid #107c10">
+          <h3>月200件での試算</h3>
+          <p>依頼1件あたり入出力を約8Kトークンと置くと、</p>
+          <ul class="li">
+            <li>基本モデル：約0.8クレジット/件 → <b>約160クレジット/月</b></li>
+            <li>標準モデル：約12クレジット/件 → <b>約2,400クレジット/月</b></li>
+            <li>ドキュメント処理併用時：1件2ページ×200件＝400ページ → 3,200クレジット</li>
+          </ul>
+          <p style="margin-top:8px"><b>結論：AIの従量コストは論点になりません。</b>ボトルネックは費用ではなく、判定表とマスタ定義の整備工数です。</p>
+          <p class="note" style="margin-top:6px">※ クレジット単価の金額換算は Copilot Credits ガイド(PDF)で要確認。<b>ここでは断定しません。</b></p>
+        </div>
+      </div>
+    </div>
+
+    <div class="sec">
+      <h2>業務・運用面の懸念</h2>
+      <div class="grid3">
+        <div class="card"><h3>精度は「宣言」せず「実測」する</h3><p>手書き・かすれFAXの読み取り精度は、サンプル検証するまで誰にも分かりません。<b>PoCで実測値を出してから展開判断</b>とします。</p></div>
+        <div class="card"><h3>見逃しゼロの担保</h3><p>例外管理型への移行条件は<b>見逃し率0</b>です。並走期間（人の全件チェックを継続）を必ず設け、実績が出てから外します。</p></div>
+        <div class="card"><h3>判定表の運用主体</h3><p>業務ルールが変われば判定表も変わります。<b>誰が更新するかを決めずに作ると1年で陳腐化</b>します。情シスか業務部門かを先に決めます。</p></div>
+        <div class="card"><h3>依頼と登録結果の紐付け</h3><p>登録後照合は、依頼と登録データを結ぶ<b>キーが存在しないと成立しません</b>。無い場合は依頼No転記の運用ルールから作る必要があります。</p></div>
+        <div class="card"><h3>権限とガバナンス</h3><p>基幹DBへの読み取り専用アカウント、ゲートウェイ設置、Premiumライセンスの割り当て。<b>技術より社内調整の方が時間を要します。</b></p></div>
+        <div class="card"><h3>内製の範囲</h3><p>AI研修の題材とする場合、<b>受講者が保守できるのはフローと判定表まで</b>。ストアドプロシージャとゲートウェイは情シス側の担当として切り分けます。</p></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== 09 PoC ===== -->
+<section id="p9" class="page hidden">
+  <div class="phead">
+    <div class="kicker">09　PoCの進め方</div>
+    <h1>依頼書2種類・8週間で「移行できるか」を判定する</h1>
+    <p>対象の選び方は<b>「件数が多い × 関連登録が発生する × 差し戻しが多い」</b>の3条件。件数だけで選ぶと簡単な依頼ばかりになり、展開の判断材料になりません。</p>
+  </div>
+  <div class="wrap">
+    <div class="sec">
+      <h2>スケジュール</h2>
+      <div class="tblwrap"><table class="gantt">
+        <tr><th style="width:230px">作業</th><th style="width:120px">成果物</th><th>W1</th><th>W2</th><th>W3</th><th>W4</th><th>W5</th><th>W6</th><th>W7</th><th>W8</th></tr>
+        <tr><td>対象2種の選定／データ収集<br><small style="color:#797775">サンプル各30〜50件＋登録実データ</small></td><td>対象定義書</td><td colspan="2"><div class="bar">収集</div></td><td colspan="6"></td></tr>
+        <tr><td><b>判定表の初版作成</b><br><small style="color:#797775">AI抽出＋有識者レビュー</small></td><td>判定表 v1</td><td></td><td colspan="3"><div class="bar or">最重要工程</div></td><td colspan="4"></td></tr>
+        <tr><td>AI読解プロンプト／検査フロー実装</td><td>動くフロー</td><td colspan="3"></td><td colspan="3"><div class="bar">実装</div></td><td colspan="2"></td></tr>
+        <tr><td>過去データ100件での机上検証<br><small style="color:#797775">本番影響なし</small></td><td>精度レポート</td><td colspan="5"></td><td colspan="2"><div class="bar">検証</div></td><td></td></tr>
+        <tr><td>並走運用（人の全件チェックは継続）</td><td>移行判断材料</td><td colspan="6"></td><td colspan="2"><div class="bar gy">並走</div></td></tr>
+      </table></div>
+    </div>
+    <div class="sec">
+      <h2>評価指標は「精度」ではなく、この2つで置く</h2>
+      <div class="grid2">
+        <div class="card" style="border-top:3px solid #a4262c">
+          <h3>① 見逃し率 ＝ 0 を目標</h3>
+          <p>人が指摘した不備を、AI／ルールが検出できなかった割合。<b>例外管理型に移行できるかの唯一の条件</b>です。1件でも見逃しがあれば並走を延長します。</p>
+        </div>
+        <div class="card" style="border-top:3px solid #c55a11">
+          <h3>② 要確認率 ＝ 30%以下</h3>
+          <p>全件のうち人に回る割合。高すぎると今と変わらず、<b>低すぎるのは見逃している疑い</b>があります。両方を同時に見ることが重要です。</p>
+        </div>
+      </div>
+      <div class="callout blue" style="margin-top:14px">
+        <b>移行判断：</b>見逃し率0が並走2週間で確認できた依頼書種別から、順次「全件人チェック」を外します。<b>いきなり20種類すべてを外しません。</b>
+      </div>
+    </div>
+    <div class="sec">
+      <h2>必要データ（着手前に揃えるもの）</h2>
+      <div class="tblwrap"><table>
+        <tr><th style="width:40px">#</th><th style="width:300px">必要なもの</th><th>用途・注意</th></tr>
+        <tr><td>1</td><td>対象依頼書のサンプル 各30〜50件</td><td><b>正常系だけでなく、差し戻しになった異常系を必ず含める</b></td></tr>
+        <tr><td>2</td><td>同じ依頼に対応する登録後の実データ</td><td>判定表のAI抽出に使用。依頼と登録を結ぶキーの有無を確認</td></tr>
+        <tr><td>3</td><td>差し戻し・手戻りの実績</td><td>無ければヒアリングで20件だけでも。要確認率の目標設定に使う</td></tr>
+        <tr><td>4</td><td>各基幹システムのマスタ定義</td><td>テーブル／項目／必須／コード体系／相関ルール</td></tr>
+        <tr><td>5</td><td>受付システムのデータ取り出し口</td><td>API／CSV・Excel出力／DB参照／メール のどれが使えるか</td></tr>
+        <tr><td>6</td><td>基幹DBの読み取り専用アカウント可否</td><td><b>これが出るかで登録後照合の方式が変わる</b>（不可なら夜間CSV）</td></tr>
+        <tr><td>7</td><td>Power Automate Premium の保有状況</td><td>SQLコネクタはPremium。ゲートウェイ設置可否も併せて</td></tr>
+      </table></div>
+    </div>
+    <div class="sec">
+      <h2>次回打合せの論点</h2>
+      <ul class="li">
+        <li>受付システムからデータをどう出せるか（API有無／CSV出力／DB参照可否）</li>
+        <li>基幹DBへの<b>読み取り専用</b>アクセスは許可されるか</li>
+        <li>依頼と登録結果を突合できる<b>キー</b>が存在するか</li>
+        <li>Power Automate Premium の保有状況とゲートウェイ設置可否</li>
+        <li>将来の「自動入力」まで射程に入れるか（入れるならRPAライセンスの話が別途必要）</li>
+        <li>対象に選ぶ依頼書2種類の合意</li>
+      </ul>
+    </div>
+    <div class="sec">
+      <div class="callout">
+        <b>本デモについて：</b>画面・数値はすべて検討用のサンプルであり、実測値・実装済み機能ではありません。実現可否の判断は、上記PoCの実データ検証をもって確定させます。
+      </div>
+    </div>
+  </div>
+</section>
+  </main>
+</div>
+
+<script>
+/* ===== ナビゲーション ===== */
+document.querySelectorAll('#nav .ni').forEach(function(n){
+  n.addEventListener('click',function(){
+    document.querySelectorAll('#nav .ni').forEach(function(x){x.classList.remove('on')});
+    n.classList.add('on');
+    document.querySelectorAll('.page').forEach(function(p){p.classList.add('hidden')});
+    document.getElementById(n.dataset.p).classList.remove('hidden');
+    window.scrollTo(0,0);
+  });
+});
+
+/* ===== サンプルデータ ===== */
+var DATA = [
+{
+ id:'REQ-2041', name:'REQ-2041　取引先マスタ 新規登録依頼（関連登録漏れの例）',
+ meta:'依頼書種別：取引先マスタ_新規登録／受付 2026-09-14',
+ fax:'<div class="ttl">取引先マスタ　新規登録依頼書</div>'+
+  '<div class="row"><div class="k">依頼No</div><div class="v">REQ-2041</div></div>'+
+  '<div class="row"><div class="k">申請部門</div><div class="v">営業第2課</div></div>'+
+  '<div class="row"><div class="k">申請者</div><div class="v hand">（手書き・かすれ）</div></div>'+
+  '<div class="row"><div class="k">取引先名</div><div class="v">ｱｼﾞｬｽﾄ商事株式会社</div></div>'+
+  '<div class="row"><div class="k">所在地</div><div class="v">東京都港区芝浦4-2-8</div></div>'+
+  '<div class="row"><div class="k">支払条件</div><div class="v">月末締　翌月末払</div></div>'+
+  '<div class="row"><div class="k">与信区分</div><div class="v">有</div></div>'+
+  '<div class="row"><div class="k">取引開始予定日</div><div class="v">2026年10月1日</div></div>'+
+  '<div class="row"><div class="k">備考</div><div class="v hand">至急対応願います</div></div>',
+ json:'{\n  <span class="k">"依頼No"</span>: <span class="s">"REQ-2041"</span>,\n  <span class="k">"依頼書種別"</span>: <span class="s">"取引先マスタ_新規登録"</span>,\n  <span class="k">"抽出項目"</span>: {\n    <span class="k">"取引先名"</span>:   { <span class="k">"値"</span>: <span class="s">"アジャスト商事株式会社"</span>, <span class="k">"信頼度"</span>: <span class="n">0.99</span>, <span class="k">"補正"</span>: <span class="s">"半角カナ→全角"</span> },\n    <span class="k">"所在地"</span>:     { <span class="k">"値"</span>: <span class="s">"東京都港区芝浦4-2-8"</span>, <span class="k">"信頼度"</span>: <span class="n">0.97</span> },\n    <span class="k">"締日"</span>:       { <span class="k">"値"</span>: <span class="s">"月末"</span>, <span class="k">"信頼度"</span>: <span class="n">0.98</span> },\n    <span class="k">"支払日"</span>:     { <span class="k">"値"</span>: <span class="s">"翌月末"</span>, <span class="k">"信頼度"</span>: <span class="n">0.98</span> },\n    <span class="k">"与信区分"</span>:   { <span class="k">"値"</span>: <span class="s">"有"</span>, <span class="k">"信頼度"</span>: <span class="n">0.96</span> },\n    <span class="k">"取引開始日"</span>: { <span class="k">"値"</span>: <span class="s">"2026-10-01"</span>, <span class="k">"信頼度"</span>: <span class="n">0.99</span> },\n    <span class="k">"申請者"</span>:     { <span class="k">"値"</span>: <span class="n">null</span>, <span class="k">"信頼度"</span>: <span class="n">0.41</span>, <span class="k">"備考"</span>: <span class="s">"手書き・判読不可"</span> }\n  }\n}\n<span class="c">// AIの出力はここまで。合否はルールが判定する</span>',
+ checks:[
+  ['ok','R1','必須項目の充足','取引先名・所在地・支払条件・与信区分は記入あり'],
+  ['wr','W02','申請者の信頼度が閾値未満（0.41 &lt; 0.80）','手書きが判読できず。原本での確認が必要'],
+  ['wr','W01','表記ゆれを自動補正','「ｱｼﾞｬｽﾄ商事株式会社」→「アジャスト商事株式会社」（半角カナ→全角）'],
+  ['ok','R2','コード体系・型・桁','日付書式・住所桁数ともに規定内'],
+  ['ng','E03','類似する既存取引先を検出','取引先コード 10482「アジャスト商事(株)」と所在地が一致。重複登録の可能性'],
+  ['ok','R4','項目間の論理整合','「月末締／翌月末払」は支払条件マスタの許容組合せに存在'],
+  ['ng','E05','<b>関連登録漏れ：与信区分＝有</b>','判定表より、システムB「与信マスタ」への登録が必要。依頼書に記載なし'],
+  ['ng','E05','<b>関連登録漏れ：取引開始日あり</b>','判定表より、システムC「取引先別単価マスタ」の初期登録が必要'],
+  ['ok','R6','承認経路・権限','営業第2課からの新規登録依頼は課長承認で成立']],
+ verdict:['ng','要確認　エラー3件／警告2件','理由コード：E03, E05×2, W01, W02　→　例外キューへ'],
+ match:'<span class="pill p-gy">対象外</span>　未登録のため照合は実施されません。登録完了後、夜間バッチで自動照合されます。'
+},
+{
+ id:'REQ-2042', name:'REQ-2042　支払条件 変更依頼（論理矛盾の例）',
+ meta:'依頼書種別：取引先マスタ_支払条件変更／受付 2026-09-14',
+ fax:'<div class="ttl">支払条件　変更依頼書</div>'+
+  '<div class="row"><div class="k">依頼No</div><div class="v">REQ-2042</div></div>'+
+  '<div class="row"><div class="k">申請部門</div><div class="v">購買課</div></div>'+
+  '<div class="row"><div class="k">取引先コード</div><div class="v">10233</div></div>'+
+  '<div class="row"><div class="k">取引先名</div><div class="v">東和マテリアル株式会社</div></div>'+
+  '<div class="row"><div class="k">変更後 締日</div><div class="v">20日</div></div>'+
+  '<div class="row"><div class="k">変更後 支払日</div><div class="v">当月末</div></div>'+
+  '<div class="row"><div class="k">適用開始日</div><div class="v">2026年9月1日</div></div>'+
+  '<div class="row"><div class="k">対象システム</div><div class="v">システムA（販売）</div></div>',
+ json:'{\n  <span class="k">"依頼No"</span>: <span class="s">"REQ-2042"</span>,\n  <span class="k">"依頼書種別"</span>: <span class="s">"取引先マスタ_支払条件変更"</span>,\n  <span class="k">"抽出項目"</span>: {\n    <span class="k">"取引先コード"</span>: { <span class="k">"値"</span>: <span class="s">"10233"</span>, <span class="k">"信頼度"</span>: <span class="n">0.99</span> },\n    <span class="k">"締日"</span>:         { <span class="k">"値"</span>: <span class="s">"20日"</span>, <span class="k">"信頼度"</span>: <span class="n">0.99</span> },\n    <span class="k">"支払日"</span>:       { <span class="k">"値"</span>: <span class="s">"当月末"</span>, <span class="k">"信頼度"</span>: <span class="n">0.98</span> },\n    <span class="k">"適用開始日"</span>:   { <span class="k">"値"</span>: <span class="s">"2026-09-01"</span>, <span class="k">"信頼度"</span>: <span class="n">0.99</span> },\n    <span class="k">"対象システム"</span>: { <span class="k">"値"</span>: [<span class="s">"システムA"</span>], <span class="k">"信頼度"</span>: <span class="n">0.95</span> }\n  }\n}',
+ checks:[
+  ['ok','R1','必須項目の充足','記入漏れなし'],
+  ['ok','R2','コード体系・型・桁','取引先コードは5桁数字＝規定どおり'],
+  ['ok','R3','マスタ存在','取引先コード 10233 はシステムA・Bともに存在'],
+  ['ng','E04','<b>論理矛盾：締日と支払日の組合せ</b>','「20日締／当月末払」は支払条件マスタの許容組合せに存在しない（許容：翌月末／翌々月10日）'],
+  ['ng','E04','適用開始日が受付日より前','2026-09-01 は遡及適用。既存伝票への影響確認と上位承認が必要'],
+  ['ng','E05','<b>関連登録漏れ：対象システム</b>','判定表より、支払条件はシステムA・B両方の更新が必要。依頼書はAのみ記載'],
+  ['ok','R6','承認経路・権限','購買課からの変更依頼は課長承認で成立']],
+ verdict:['ng','要確認　エラー3件','理由コード：E04×2, E05　→　例外キューへ（差し戻し候補）'],
+ match:'<span class="pill p-gy">対象外</span>　未登録のため照合は実施されません。'
+},
+{
+ id:'REQ-2043', name:'REQ-2043　住所変更依頼（自動OK／照合で差異検出の例）',
+ meta:'依頼書種別：取引先マスタ_住所変更／受付 2026-09-12',
+ fax:'<div class="ttl">取引先　住所変更依頼書</div>'+
+  '<div class="row"><div class="k">依頼No</div><div class="v">REQ-2043</div></div>'+
+  '<div class="row"><div class="k">申請部門</div><div class="v">営業第1課</div></div>'+
+  '<div class="row"><div class="k">取引先コード</div><div class="v">10711</div></div>'+
+  '<div class="row"><div class="k">取引先名</div><div class="v">株式会社ﾐﾄﾞﾘ製作所</div></div>'+
+  '<div class="row"><div class="k">変更後 所在地</div><div class="v">愛知県名古屋市中村区名駅1-1-4</div></div>'+
+  '<div class="row"><div class="k">適用開始日</div><div class="v">2026年10月1日</div></div>'+
+  '<div class="row"><div class="k">対象システム</div><div class="v">システムA・B・C</div></div>',
+ json:'{\n  <span class="k">"依頼No"</span>: <span class="s">"REQ-2043"</span>,\n  <span class="k">"依頼書種別"</span>: <span class="s">"取引先マスタ_住所変更"</span>,\n  <span class="k">"抽出項目"</span>: {\n    <span class="k">"取引先コード"</span>: { <span class="k">"値"</span>: <span class="s">"10711"</span>, <span class="k">"信頼度"</span>: <span class="n">0.99</span> },\n    <span class="k">"取引先名"</span>:     { <span class="k">"値"</span>: <span class="s">"株式会社ミドリ製作所"</span>, <span class="k">"信頼度"</span>: <span class="n">0.99</span>, <span class="k">"補正"</span>: <span class="s">"半角カナ→全角"</span> },\n    <span class="k">"所在地"</span>:       { <span class="k">"値"</span>: <span class="s">"愛知県名古屋市中村区名駅1-1-4"</span>, <span class="k">"信頼度"</span>: <span class="n">0.98</span> },\n    <span class="k">"適用開始日"</span>:   { <span class="k">"値"</span>: <span class="s">"2026-10-01"</span>, <span class="k">"信頼度"</span>: <span class="n">0.99</span> },\n    <span class="k">"対象システム"</span>: { <span class="k">"値"</span>: [<span class="s">"システムA"</span>,<span class="s">"システムB"</span>,<span class="s">"システムC"</span>], <span class="k">"信頼度"</span>: <span class="n">0.97</span> }\n  }\n}',
+ checks:[
+  ['ok','R1','必須項目の充足','記入漏れなし'],
+  ['wr','W01','表記ゆれを自動補正','「株式会社ﾐﾄﾞﾘ製作所」→「株式会社ミドリ製作所」'],
+  ['ok','R2','コード体系・型・桁','規定どおり'],
+  ['ok','R3','マスタ存在','取引先コード 10711 は3システムすべてに存在'],
+  ['ok','R4','項目間の論理整合','適用開始日は受付日以降。矛盾なし'],
+  ['ok','R5','関連登録の展開','判定表の該当条件なし。3システムの住所更新のみで充足'],
+  ['ok','R6','承認経路・権限','成立']],
+ verdict:['ok','OK　人の確認は不要','警告1件（自動補正済み）　→　登録工程へ'],
+ match:'<div style="font-size:12.5px;line-height:1.9"><b>登録完了後、基幹3システムと突合した結果：</b><br>'+
+  '<span class="pill p-ok">一致</span> システムA（販売）　所在地＝愛知県名古屋市中村区名駅1-1-4<br>'+
+  '<span class="pill p-ng">差異</span> システムB（会計）　所在地＝<b style="color:#a4262c">愛知県名古屋市中村区名駅3-28-12（旧住所のまま）</b><br>'+
+  '<span class="pill p-ok">一致</span> システムC（生産）　所在地＝愛知県名古屋市中村区名駅1-1-4<br>'+
+  '<div class="callout red" style="margin-top:10px">理由コード <b>M01</b>：登録漏れを検出し、例外キューへ差し戻しました。<b>現状の運用では発見できていない種類の不備です。</b></div></div>'
+}];
+
+/* ===== デモ制御 ===== */
+var sel=document.getElementById('reqsel'), timers=[];
+DATA.forEach(function(d,i){ var o=document.createElement('option'); o.value=i; o.textContent=d.name; sel.appendChild(o); });
+
+function renderDoc(){
+  var d=DATA[sel.value];
+  document.getElementById('faxbox').innerHTML=d.fax;
+  document.getElementById('docmeta').textContent=d.meta;
+}
+function clearRun(){
+  timers.forEach(clearTimeout); timers=[];
+  document.querySelectorAll('#steps .step').forEach(function(s){s.className='step';s.querySelector('.sm').textContent='';});
+  ['jsonpane','chkpane','matchpane'].forEach(function(id){document.getElementById(id).classList.add('hidden')});
+  document.getElementById('verdictbox').classList.add('hidden');
+  document.getElementById('runstat').textContent='未実行';
+  document.getElementById('runbtn').disabled=false;
+}
+function stepMsg(i,t,cls){
+  var s=document.querySelector('#steps .step[data-s="'+i+'"]');
+  s.className='step '+cls; s.querySelector('.sm').textContent=t;
+}
+function run(){
+  clearRun();
+  var d=DATA[sel.value];
+  document.getElementById('runbtn').disabled=true;
+  document.getElementById('runstat').textContent='実行中…';
+  var ng=d.checks.filter(function(c){return c[0]==='ng'}).length;
+  var wr=d.checks.filter(function(c){return c[0]==='wr'}).length;
+
+  timers.push(setTimeout(function(){ stepMsg(0,'','run'); },100));
+  timers.push(setTimeout(function(){ stepMsg(0,'依頼1件を取込','done'); stepMsg(1,'解析中…','run'); },700));
+  timers.push(setTimeout(function(){
+    stepMsg(1,'7項目を抽出','done');
+    var jp=document.getElementById('jsonpane'); jp.classList.remove('hidden'); jp.classList.add('fadein');
+    document.getElementById('jsonbox').innerHTML=d.json;
+    stepMsg(2,'R1-R6 実行中…','run');
+  },1600));
+  timers.push(setTimeout(function(){
+    stepMsg(2,'エラー'+ng+'件／警告'+wr+'件','done');
+    var cp=document.getElementById('chkpane'); cp.classList.remove('hidden'); cp.classList.add('fadein');
+    document.getElementById('chkmeta').textContent='判定はすべてルール側で実施';
+    var h='';
+    d.checks.forEach(function(c){
+      var ic=c[0]==='ok'?'ok':(c[0]==='ng'?'ng':'wr');
+      var mk=c[0]==='ok'?'✓':(c[0]==='ng'?'!':'△');
+      h+='<div class="chk"><div class="ic '+ic+'">'+mk+'</div><div class="cd">'+c[1]+'</div><div class="tx"><b>'+c[2]+'</b><small>'+c[3]+'</small></div></div>';
+    });
+    document.getElementById('chkbox').innerHTML=h;
+    stepMsg(3,'判定中…','run');
+  },2600));
+  timers.push(setTimeout(function(){
+    stepMsg(3,d.verdict[0]==='ok'?'自動OK':'要確認','done');
+    var vb=document.getElementById('verdictbox');
+    vb.className='fadein'; vb.classList.remove('hidden');
+    vb.innerHTML='<div class="verdict '+d.verdict[0]+'"><div class="vi">'+(d.verdict[0]==='ok'?'✓':'!')+'</div><div>'+d.verdict[1]+'<small>'+d.verdict[2]+'</small></div></div>';
+    stepMsg(4,'','run');
+  },3500));
+  timers.push(setTimeout(function(){
+    stepMsg(4,d.verdict[0]==='ok'?'差異1件を検出':'登録前のため対象外',d.verdict[0]==='ok'?'done':'');
+    var mp=document.getElementById('matchpane'); mp.classList.remove('hidden'); mp.classList.add('fadein');
+    document.getElementById('matchbox').innerHTML=d.match;
+    document.getElementById('runstat').textContent='完了';
+    document.getElementById('runbtn').disabled=false;
+  },4300));
+}
+sel.addEventListener('change',function(){ renderDoc(); clearRun(); });
+document.getElementById('runbtn').addEventListener('click',run);
+document.getElementById('resetbtn').addEventListener('click',clearRun);
+renderDoc();
+
+/* ===== 例外キュー ===== */
+var QUEUE=[
+ ['REQ-2041','取引先マスタ 新規登録','営業第2課','ng','E03 / E05×2 / W02','重複候補あり・与信マスタ未指示'],
+ ['REQ-2042','支払条件 変更','購買課','ng','E04×2 / E05','締日と支払日の組合せが規定外'],
+ ['REQ-2043','住所変更','営業第1課','in','M01','登録後照合でシステムBの未更新を検出'],
+ ['REQ-2038','取引先マスタ 新規登録','営業第3課','ng','E01','必須項目「請求先区分」が未記入'],
+ ['REQ-2035','単価マスタ 変更','生産管理課','wr','W02','FAXのかすれで数量欄の信頼度が0.62。原本確認'],
+ ['REQ-2029','取引先マスタ 廃止','経理課','ng','E05','未決済伝票あり。廃止前に与信マスタの停止処理が必要']
+];
+var qh='';
+QUEUE.forEach(function(q){
+  var cls=q[3]==='ng'?'p-ng':(q[3]==='wr'?'p-wr':'p-in');
+  var lb=q[3]==='ng'?'要確認':(q[3]==='wr'?'警告':'照合差異');
+  qh+='<div class="qrow"><div class="id">'+q[0]+'</div><div class="nm"><b>'+q[1]+'</b><small>'+q[2]+'　／　'+q[5]+'</small></div>'+
+      '<div style="min-width:130px;font-family:Consolas,monospace;font-size:11.5px;color:#605e5c">'+q[4]+'</div>'+
+      '<div><span class="pill '+cls+'">'+lb+'</span></div>'+
+      '<div><button class="btn sec" style="padding:5px 12px;font-size:11.5px">開く</button></div></div>';
+});
+document.getElementById('queue').innerHTML=qh;
+document.querySelectorAll('#queue .btn').forEach(function(b){
+  b.addEventListener('click',function(){ alert('本デモでは詳細画面は未実装です。\n実装時は Power Apps または承認アクションで、判定根拠と原本を並べて表示します。'); });
+});
+</script>
+</body>
+</html>
