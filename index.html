@@ -264,6 +264,18 @@
         「この依頼の場合は別項目も登録する」という業務知識を、<b>フローの中にIF文で書かず、「判定表」というデータとして外に持つ</b>こと。依頼書20種類に育てた時点で、IF文方式は保守不能になります（1フロー500アクション・ネスト8階層という物理的な上限もあります）。Power Automate は判定表を引くだけの薄い器にします。
       </div>
     </div>
+    <div class="sec">
+      <h2>対象システムの画面構造（確認済み）</h2>
+      <p class="note" style="margin-bottom:12px">対象システムのマスタ登録画面（ブラウザ版・ファンクションキー操作）を確認したうえで、設計に影響する構造を整理しました。</p>
+      <div class="grid3">
+        <div class="card" style="border-top:3px solid #0b3d91"><h3>① 処理区分がある</h3><p>新規／変更／削除／照会を1画面で切り替える方式。<b>依頼書の内容から処理区分を確定できないと、その先の検査ルールが決まりません。</b>抽出の最初の分岐点になります。</p></div>
+        <div class="card" style="border-top:3px solid #c55a11"><h3>② 反映日（即反映／反映予約）がある</h3><p>マスタは適用日を持つ<b>履歴型</b>です。予約反映されたレコードは反映日まで現れないため、<b>照合を「反映日基準」で行わないと予約分が全件差異として誤検知されます。</b></p></div>
+        <div class="card" style="border-top:3px solid #c55a11"><h3>③ 関連登録が別画面にある</h3><p>「組織紐付け」「帳票設定」等が別画面として用意されています。<b>1件の依頼で5〜10画面という実態の正体はここ</b>で、同時に「登録し忘れ」が起きる場所でもあります。判定表で必ず押さえる対象です。</p></div>
+        <div class="card"><h3>④ 必須項目が多い</h3><p>処理区分・開始日・会社・取引先コード・業種区分コード・取引区分・取引先分類コード・名称3種・郵便番号・住所などが必須。<b>必須チェックだけでも相応の件数が拾えます。</b></p></div>
+        <div class="card"><h3>⑤ キーは会社＋取引先コード</h3><p>会社コードとの複合キー構成。<b>照合時のキー設計はこの粒度に合わせます。</b>依頼書に会社コードの記載が無い場合は、それ自体が要確認になります。</p></div>
+        <div class="card"><h3>⑥ ファンクションキー型のWeb画面</h3><p>ホスト系をWeb化した構成に見えます。<b>登録用APIが公開されているかは要確認。</b>無い場合、自動入力はRPAになります（本件のスコープ外）。一方で<b>照会・照合はDB参照で十分</b>です。</p></div>
+      </div>
+    </div>
   </div>
 </section>
 
@@ -424,7 +436,7 @@
   <div class="phead">
     <div class="kicker">04　動くデモ</div>
     <h1>依頼書1件が検査を通る様子</h1>
-    <p>サンプル依頼を選んで「検査を実行」を押すと、①受付取込 → ②AI読解 → ③ルール検査 → ④判定 の順に処理が進みます。<b>本デモの判定結果はサンプルデータによる固定応答であり、実際のAI出力ではありません。</b>画面遷移と判定の出方をご確認いただくためのものです。</p>
+    <p>サンプル依頼を選んで「検査を実行」を押すと、①受付取込 → ②AI読解 → ③ルール検査 → ④判定 の順に処理が進みます。<b>項目名・処理区分・反映区分は、対象システムのマスタ登録画面の構成に合わせています</b>（データは架空です）。<b>本デモの判定結果はサンプルデータによる固定応答であり、実際のAI出力ではありません。</b>画面遷移と判定の出方をご確認いただくためのものです。</p>
   </div>
   <div class="wrap">
     <div class="demobar">
@@ -439,7 +451,7 @@
       <div class="step" data-s="1"><div class="sn">STEP 2</div><div class="st">AI：読解・項目抽出</div><div class="sm"></div></div>
       <div class="step" data-s="2"><div class="sn">STEP 3</div><div class="st">ルール検査（R1-R6）</div><div class="sm"></div></div>
       <div class="step" data-s="3"><div class="sn">STEP 4</div><div class="st">判定・振り分け</div><div class="sm"></div></div>
-      <div class="step" data-s="4"><div class="sn">STEP 5</div><div class="st">登録後照合</div><div class="sm"></div></div>
+      <div class="step" data-s="4"><div class="sn">STEP 5</div><div class="st">登録後照合（反映日基準）</div><div class="sm"></div></div>
     </div>
 
     <div class="grid2" style="align-items:start">
@@ -516,7 +528,8 @@
         <tr><td><b>E05</b></td><td><b>関連登録漏れ</b></td><td>条件成立時に必要な別システム・別マスタへの登録指示が無い</td><td>ルール（判定表）</td></tr>
         <tr><td><b>W01</b></td><td>表記ゆれ自動補正</td><td>半角カナ・全角英数・法人格表記を正規化した（確認のみ）</td><td>AI＋辞書</td></tr>
         <tr><td><b>W02</b></td><td>信頼度不足</td><td>AIの抽出信頼度が閾値未満。原本確認が必要</td><td>AI（閾値判定）</td></tr>
-        <tr><td><b>M01</b></td><td>照合差異</td><td>登録後の基幹データが依頼内容と一致しない</td><td>ルール（登録後照合）</td></tr>
+        <tr><td><b>E06</b></td><td>反映日・履歴の矛盾</td><td>反映予約日が過去／開始日が既存履歴と逆転・重複する</td><td>ルール（履歴照会）</td></tr>
+        <tr><td><b>M01</b></td><td>照合差異</td><td>登録後の基幹データが依頼内容と一致しない（<b>反映日到来後に判定</b>）</td><td>ルール（登録後照合）</td></tr>
       </table></div>
     </div>
   </div>
@@ -544,6 +557,8 @@
         <tr><td style="text-align:center"><b style="color:#c19c00;font-size:16px">△</b></td><td>手書き・かすれFAX等の読み取り</td><td>ドキュメント処理モデル／AIプロンプトの画像入力</td><td><b>精度はサンプル検証必須。</b>宣言せず実測で示す</td></tr>
         <tr><td style="text-align:center"><b style="color:#c19c00;font-size:16px">△</b></td><td>受付システムからのリアルタイム連携</td><td>API があればカスタムコネクタ、無ければ定期取込</td><td>APIの有無は要確認</td></tr>
         <tr><td style="text-align:center"><b style="color:#c19c00;font-size:16px">△</b></td><td>基幹システムへの自動入力（API有り）</td><td>HTTP／カスタムコネクタで登録</td><td>更新権限・トランザクション・ロールバック設計が別途必要</td></tr>
+        <tr><td style="text-align:center"><b style="color:#c19c00;font-size:16px">△</b></td><td>照会画面から登録内容を読み取って照合</td><td>Power Automate for desktop で照会画面を操作し画面値を取得</td><td>DB参照が不可の場合の代替。<b>画面変更に弱く、件数が増えると遅い</b></td></tr>
+        <tr><td style="text-align:center"><b style="color:#0078d4;font-size:16px">○</b></td><td>反映日・履歴の整合チェック（開始日の逆転・重複）</td><td>既存レコードの開始日をSQLで取得し、依頼の開始日と突合</td><td>履歴型マスタ特有の論点。<b>ルールで確実に検出できる</b></td></tr>
         <tr><td style="text-align:center"><b style="color:#a4262c;font-size:16px">×</b></td><td>基幹システムへの自動入力（API無し）</td><td>Power Automate for desktop（RPA）が必要</td><td>Premium ライセンス＋画面変更時の保守。<b>別スコープ推奨</b></td></tr>
         <tr><td style="text-align:center"><b style="color:#a4262c;font-size:16px">×</b></td><td>業務ルールをAIに判断させる</td><td>—</td><td>根拠が残らず再現性も無い。<b>ルール化して台帳で持つ</b></td></tr>
         <tr><td style="text-align:center"><b style="color:#a4262c;font-size:16px">×</b></td><td>マスタ定義が未整備のままでの整合チェック</td><td>—</td><td>何が正しいかの定義が先。ここは業務側の作業</td></tr>
@@ -621,6 +636,15 @@
       </div>
     </div>
 
+    <div class="sec">
+      <h2>画面構造の確認で追加になった論点</h2>
+      <div class="grid2">
+        <div class="card" style="border-top:3px solid #c55a11"><h3>① 照合は「反映日基準」で行う</h3><p>予約反映されたレコードは反映日まで基幹側に現れません。受付日や登録日で突合すると<b>予約分がすべて差異として誤検知</b>されます。照合バッチは「反映日が到来した依頼」を対象に回す設計が必要です。</p></div>
+        <div class="card" style="border-top:3px solid #c55a11"><h3>② 履歴型マスタの整合チェック</h3><p>開始日を持つ履歴型のため、<b>開始日の逆転・期間の重複・遡及適用</b>という依頼特有の不備が起こります。現行のダブルチェックでも見落としやすい種類で、ルール化の効果が大きい領域です。</p></div>
+        <div class="card"><h3>③ 登録用APIの有無</h3><p>ファンクションキー型のWeb画面のため、<b>登録APIが用意されているかは要確認</b>です。無い場合、自動入力はRPAとなり本件のスコープ外。ただし<b>検査と照合はDB参照で成立</b>するため、本提案の前提は変わりません。</p></div>
+        <div class="card"><h3>④ 照会画面の利用可否</h3><p>DB直参照が許可されない場合の代替として、照会（処理区分4）画面をRPAで読む方法があります。<b>画面変更に弱く低速</b>なため、あくまで次善策として位置づけます。</p></div>
+      </div>
+    </div>
     <div class="sec">
       <h2>制約一覧</h2>
       <div class="tblwrap"><table>
@@ -765,81 +789,95 @@ document.querySelectorAll('#nav .ni').forEach(function(n){
 var DATA = [
 {
  id:'REQ-2041', name:'REQ-2041　取引先マスタ 新規登録依頼（関連登録漏れの例）',
- meta:'依頼書種別：取引先マスタ_新規登録／受付 2026-09-14',
+ meta:'処理区分 1：新規／反映区分 即反映／受付 2026-09-14',
  fax:'<div class="ttl">取引先マスタ　新規登録依頼書</div>'+
   '<div class="row"><div class="k">依頼No</div><div class="v">REQ-2041</div></div>'+
   '<div class="row"><div class="k">申請部門</div><div class="v">営業第2課</div></div>'+
   '<div class="row"><div class="k">申請者</div><div class="v hand">（手書き・かすれ）</div></div>'+
+  '<div class="row"><div class="k">処理区分</div><div class="v">1：新規</div></div>'+
+  '<div class="row"><div class="k">反映区分</div><div class="v">即反映</div></div>'+
+  '<div class="row"><div class="k">開始日</div><div class="v">2026年10月1日</div></div>'+
+  '<div class="row"><div class="k">会社</div><div class="v">010</div></div>'+
+  '<div class="row"><div class="k">取引先コード</div><div class="v">（新規採番）</div></div>'+
+  '<div class="row"><div class="k">業種区分コード</div><div class="v">47</div></div>'+
+  '<div class="row"><div class="k">取引区分</div><div class="v">直販</div></div>'+
+  '<div class="row"><div class="k">取引先分類コード</div><div class="v hand">（記入なし）</div></div>'+
   '<div class="row"><div class="k">取引先名</div><div class="v">ｱｼﾞｬｽﾄ商事株式会社</div></div>'+
-  '<div class="row"><div class="k">所在地</div><div class="v">東京都港区芝浦4-2-8</div></div>'+
-  '<div class="row"><div class="k">支払条件</div><div class="v">月末締　翌月末払</div></div>'+
-  '<div class="row"><div class="k">与信区分</div><div class="v">有</div></div>'+
-  '<div class="row"><div class="k">取引開始予定日</div><div class="v">2026年10月1日</div></div>'+
+  '<div class="row"><div class="k">取引先名略称</div><div class="v hand">（記入なし）</div></div>'+
+  '<div class="row"><div class="k">取引先名カナ</div><div class="v">ｱｼﾞｬｽﾄｼｮｳｼﾞ</div></div>'+
+  '<div class="row"><div class="k">郵便番号／住所</div><div class="v">105-0023／東京都港区芝浦4-2-8</div></div>'+
   '<div class="row"><div class="k">備考</div><div class="v hand">至急対応願います</div></div>',
- json:'{\n  <span class="k">"依頼No"</span>: <span class="s">"REQ-2041"</span>,\n  <span class="k">"依頼書種別"</span>: <span class="s">"取引先マスタ_新規登録"</span>,\n  <span class="k">"抽出項目"</span>: {\n    <span class="k">"取引先名"</span>:   { <span class="k">"値"</span>: <span class="s">"アジャスト商事株式会社"</span>, <span class="k">"信頼度"</span>: <span class="n">0.99</span>, <span class="k">"補正"</span>: <span class="s">"半角カナ→全角"</span> },\n    <span class="k">"所在地"</span>:     { <span class="k">"値"</span>: <span class="s">"東京都港区芝浦4-2-8"</span>, <span class="k">"信頼度"</span>: <span class="n">0.97</span> },\n    <span class="k">"締日"</span>:       { <span class="k">"値"</span>: <span class="s">"月末"</span>, <span class="k">"信頼度"</span>: <span class="n">0.98</span> },\n    <span class="k">"支払日"</span>:     { <span class="k">"値"</span>: <span class="s">"翌月末"</span>, <span class="k">"信頼度"</span>: <span class="n">0.98</span> },\n    <span class="k">"与信区分"</span>:   { <span class="k">"値"</span>: <span class="s">"有"</span>, <span class="k">"信頼度"</span>: <span class="n">0.96</span> },\n    <span class="k">"取引開始日"</span>: { <span class="k">"値"</span>: <span class="s">"2026-10-01"</span>, <span class="k">"信頼度"</span>: <span class="n">0.99</span> },\n    <span class="k">"申請者"</span>:     { <span class="k">"値"</span>: <span class="n">null</span>, <span class="k">"信頼度"</span>: <span class="n">0.41</span>, <span class="k">"備考"</span>: <span class="s">"手書き・判読不可"</span> }\n  }\n}\n<span class="c">// AIの出力はここまで。合否はルールが判定する</span>',
+ json:'{\n  <span class="k">"依頼No"</span>: <span class="s">"REQ-2041"</span>,\n  <span class="k">"依頼書種別"</span>: <span class="s">"取引先マスタ_新規登録"</span>,\n  <span class="k">"抽出項目"</span>: {\n    <span class="k">"処理区分"</span>:     { <span class="k">"値"</span>: <span class="s">"1:新規"</span>, <span class="k">"信頼度"</span>: <span class="n">0.99</span> },\n    <span class="k">"反映区分"</span>:     { <span class="k">"値"</span>: <span class="s">"即反映"</span>, <span class="k">"信頼度"</span>: <span class="n">0.98</span> },\n    <span class="k">"開始日"</span>:       { <span class="k">"値"</span>: <span class="s">"2026-10-01"</span>, <span class="k">"信頼度"</span>: <span class="n">0.99</span> },\n    <span class="k">"会社"</span>:         { <span class="k">"値"</span>: <span class="s">"010"</span>, <span class="k">"信頼度"</span>: <span class="n">0.99</span> },\n    <span class="k">"業種区分コード"</span>:       { <span class="k">"値"</span>: <span class="s">"47"</span>, <span class="k">"信頼度"</span>: <span class="n">0.97</span> },\n    <span class="k">"取引区分"</span>:     { <span class="k">"値"</span>: <span class="s">"直販"</span>, <span class="k">"信頼度"</span>: <span class="n">0.96</span> },\n    <span class="k">"取引先分類コード"</span>: { <span class="k">"値"</span>: <span class="n">null</span> },\n    <span class="k">"取引先名"</span>:     { <span class="k">"値"</span>: <span class="s">"アジャスト商事株式会社"</span>, <span class="k">"信頼度"</span>: <span class="n">0.99</span>, <span class="k">"補正"</span>: <span class="s">"半角カナ→全角"</span> },\n    <span class="k">"取引先名略称"</span>: { <span class="k">"値"</span>: <span class="n">null</span> },\n    <span class="k">"取引先名カナ"</span>: { <span class="k">"値"</span>: <span class="s">"ｱｼﾞｬｽﾄｼｮｳｼﾞ"</span>, <span class="k">"信頼度"</span>: <span class="n">0.98</span>, <span class="k">"補正"</span>: <span class="s">"半角カナのまま保持"</span> },\n    <span class="k">"郵便番号"</span>:     { <span class="k">"値"</span>: <span class="s">"105-0023"</span>, <span class="k">"信頼度"</span>: <span class="n">0.99</span> },\n    <span class="k">"住所"</span>:         { <span class="k">"値"</span>: <span class="s">"東京都港区芝浦4-2-8"</span>, <span class="k">"信頼度"</span>: <span class="n">0.97</span> },\n    <span class="k">"申請者"</span>:       { <span class="k">"値"</span>: <span class="n">null</span>, <span class="k">"信頼度"</span>: <span class="n">0.41</span>, <span class="k">"備考"</span>: <span class="s">"手書き・判読不可"</span> }\n  }\n}\n<span class="c">// AIの出力はここまで。合否はルールが判定する</span>',
  checks:[
-  ['ok','R1','必須項目の充足','取引先名・所在地・支払条件・与信区分は記入あり'],
+  ['ng','E01','<b>必須項目が未記入</b>','「取引先名略称」「取引先分類コード」は登録画面の必須項目。依頼書に記入欄はあるが空欄'],
   ['wr','W02','申請者の信頼度が閾値未満（0.41 &lt; 0.80）','手書きが判読できず。原本での確認が必要'],
-  ['wr','W01','表記ゆれを自動補正','「ｱｼﾞｬｽﾄ商事株式会社」→「アジャスト商事株式会社」（半角カナ→全角）'],
-  ['ok','R2','コード体系・型・桁','日付書式・住所桁数ともに規定内'],
-  ['ng','E03','類似する既存取引先を検出','取引先コード 10482「アジャスト商事(株)」と所在地が一致。重複登録の可能性'],
-  ['ok','R4','項目間の論理整合','「月末締／翌月末払」は支払条件マスタの許容組合せに存在'],
-  ['ng','E05','<b>関連登録漏れ：与信区分＝有</b>','判定表より、システムB「与信マスタ」への登録が必要。依頼書に記載なし'],
-  ['ng','E05','<b>関連登録漏れ：取引開始日あり</b>','判定表より、システムC「取引先別単価マスタ」の初期登録が必要'],
+  ['wr','W01','項目ごとに正規化方針を出し分け','取引先名は全角補正／<b>取引先名カナは半角カナのまま保持</b>（項目定義に合わせる）'],
+  ['ok','R2','コード体系・型・桁','会社3桁・郵便番号書式・開始日書式はいずれも規定内'],
+  ['ng','E03','<b>業種区分コード 47 が業種区分マスタに存在しない</b>','旧コード体系の値。現行の有効な業種区分コードは 51〜58。SQL照会で検出'],
+  ['ok','R4','郵便番号と住所の整合','105-0023＝東京都港区芝浦。郵便番号マスタと一致'],
+  ['ng','E05','<b>関連登録漏れ：関連マスタ①（組織紐付け）</b>','判定表より、新規取引先は関連マスタ①の登録が必須。依頼書に記載なし'],
+  ['ng','E05','<b>関連登録漏れ：関連マスタ②（帳票設定）</b>','判定表より、取引区分＝直販の新規取引先は関連マスタ②の設定が必要'],
   ['ok','R6','承認経路・権限','営業第2課からの新規登録依頼は課長承認で成立']],
- verdict:['ng','要確認　エラー3件／警告2件','理由コード：E03, E05×2, W01, W02　→　例外キューへ'],
- match:'<span class="pill p-gy">対象外</span>　未登録のため照合は実施されません。登録完了後、夜間バッチで自動照合されます。'
+ verdict:['ng','要確認　エラー4件／警告2件','理由コード：E01, E03, E05×2, W01, W02　→　例外キューへ'],
+ match:'<span class="pill p-gy">対象外</span>　未登録のため照合は実施されません。即反映のため、登録完了の翌日バッチで自動照合されます。'
 },
 {
- id:'REQ-2042', name:'REQ-2042　支払条件 変更依頼（論理矛盾の例）',
- meta:'依頼書種別：取引先マスタ_支払条件変更／受付 2026-09-14',
- fax:'<div class="ttl">支払条件　変更依頼書</div>'+
+ id:'REQ-2042', name:'REQ-2042　取引先マスタ 変更依頼（反映日・履歴の矛盾の例）',
+ meta:'処理区分 2：変更／反映区分 反映予約／受付 2026-09-14',
+ fax:'<div class="ttl">取引先マスタ　変更依頼書</div>'+
   '<div class="row"><div class="k">依頼No</div><div class="v">REQ-2042</div></div>'+
   '<div class="row"><div class="k">申請部門</div><div class="v">購買課</div></div>'+
-  '<div class="row"><div class="k">取引先コード</div><div class="v">10233</div></div>'+
+  '<div class="row"><div class="k">処理区分</div><div class="v">2：変更</div></div>'+
+  '<div class="row"><div class="k">反映区分</div><div class="v">反映予約　2026/09/01</div></div>'+
+  '<div class="row"><div class="k">開始日</div><div class="v">2026年9月1日</div></div>'+
+  '<div class="row"><div class="k">会社／取引先コード</div><div class="v">010／10233</div></div>'+
   '<div class="row"><div class="k">取引先名</div><div class="v">東和マテリアル株式会社</div></div>'+
-  '<div class="row"><div class="k">変更後 締日</div><div class="v">20日</div></div>'+
-  '<div class="row"><div class="k">変更後 支払日</div><div class="v">当月末</div></div>'+
-  '<div class="row"><div class="k">適用開始日</div><div class="v">2026年9月1日</div></div>'+
+  '<div class="row"><div class="k">変更内容①</div><div class="v">業種区分コード　52 → 55</div></div>'+
+  '<div class="row"><div class="k">変更内容②</div><div class="v">取引区分　直販 → 代理店</div></div>'+
   '<div class="row"><div class="k">対象システム</div><div class="v">システムA（販売）</div></div>',
- json:'{\n  <span class="k">"依頼No"</span>: <span class="s">"REQ-2042"</span>,\n  <span class="k">"依頼書種別"</span>: <span class="s">"取引先マスタ_支払条件変更"</span>,\n  <span class="k">"抽出項目"</span>: {\n    <span class="k">"取引先コード"</span>: { <span class="k">"値"</span>: <span class="s">"10233"</span>, <span class="k">"信頼度"</span>: <span class="n">0.99</span> },\n    <span class="k">"締日"</span>:         { <span class="k">"値"</span>: <span class="s">"20日"</span>, <span class="k">"信頼度"</span>: <span class="n">0.99</span> },\n    <span class="k">"支払日"</span>:       { <span class="k">"値"</span>: <span class="s">"当月末"</span>, <span class="k">"信頼度"</span>: <span class="n">0.98</span> },\n    <span class="k">"適用開始日"</span>:   { <span class="k">"値"</span>: <span class="s">"2026-09-01"</span>, <span class="k">"信頼度"</span>: <span class="n">0.99</span> },\n    <span class="k">"対象システム"</span>: { <span class="k">"値"</span>: [<span class="s">"システムA"</span>], <span class="k">"信頼度"</span>: <span class="n">0.95</span> }\n  }\n}',
+ json:'{\n  <span class="k">"依頼No"</span>: <span class="s">"REQ-2042"</span>,\n  <span class="k">"依頼書種別"</span>: <span class="s">"取引先マスタ_変更"</span>,\n  <span class="k">"抽出項目"</span>: {\n    <span class="k">"処理区分"</span>:   { <span class="k">"値"</span>: <span class="s">"2:変更"</span>, <span class="k">"信頼度"</span>: <span class="n">0.99</span> },\n    <span class="k">"反映区分"</span>:   { <span class="k">"値"</span>: <span class="s">"反映予約"</span>, <span class="k">"信頼度"</span>: <span class="n">0.98</span> },\n    <span class="k">"反映日"</span>:     { <span class="k">"値"</span>: <span class="s">"2026-09-01"</span>, <span class="k">"信頼度"</span>: <span class="n">0.99</span> },\n    <span class="k">"開始日"</span>:     { <span class="k">"値"</span>: <span class="s">"2026-09-01"</span>, <span class="k">"信頼度"</span>: <span class="n">0.99</span> },\n    <span class="k">"取引先コード"</span>:   { <span class="k">"値"</span>: <span class="s">"10233"</span>, <span class="k">"信頼度"</span>: <span class="n">0.99</span> },\n    <span class="k">"業種区分コード"</span>:     { <span class="k">"変更前"</span>: <span class="s">"52"</span>, <span class="k">"変更後"</span>: <span class="s">"55"</span>, <span class="k">"信頼度"</span>: <span class="n">0.97</span> },\n    <span class="k">"取引区分"</span>:   { <span class="k">"変更前"</span>: <span class="s">"直販"</span>, <span class="k">"変更後"</span>: <span class="s">"代理店"</span>, <span class="k">"信頼度"</span>: <span class="n">0.96</span> },\n    <span class="k">"対象システム"</span>: { <span class="k">"値"</span>: [<span class="s">"システムA"</span>], <span class="k">"信頼度"</span>: <span class="n">0.95</span> }\n  }\n}',
  checks:[
   ['ok','R1','必須項目の充足','記入漏れなし'],
   ['ok','R2','コード体系・型・桁','取引先コードは5桁数字＝規定どおり'],
-  ['ok','R3','マスタ存在','取引先コード 10233 はシステムA・Bともに存在'],
-  ['ng','E04','<b>論理矛盾：締日と支払日の組合せ</b>','「20日締／当月末払」は支払条件マスタの許容組合せに存在しない（許容：翌月末／翌々月10日）'],
-  ['ng','E04','適用開始日が受付日より前','2026-09-01 は遡及適用。既存伝票への影響確認と上位承認が必要'],
-  ['ng','E05','<b>関連登録漏れ：対象システム</b>','判定表より、支払条件はシステムA・B両方の更新が必要。依頼書はAのみ記載'],
+  ['ok','R3','マスタ存在','取引先コード 10233 はシステムA・Bともに存在。変更後の業種区分コード 55 も有効'],
+  ['ng','E04','<b>反映予約日が受付日より前</b>','反映予約 2026-09-01 は受付日 2026-09-14 より過去。予約反映は未来日のみ受付可能'],
+  ['ng','E04','<b>開始日が既存履歴と逆転</b>','現行有効レコードの開始日は 2026-04-01。同一キーで開始日 2026-09-01 の遡及登録は履歴の重複を生む'],
+  ['ng','E05','<b>関連登録漏れ：取引区分の変更</b>','判定表より、取引区分を変更した場合は関連マスタ①（組織紐付け）の再設定が必要。依頼書に記載なし'],
   ['ok','R6','承認経路・権限','購買課からの変更依頼は課長承認で成立']],
  verdict:['ng','要確認　エラー3件','理由コード：E04×2, E05　→　例外キューへ（差し戻し候補）'],
  match:'<span class="pill p-gy">対象外</span>　未登録のため照合は実施されません。'
 },
 {
- id:'REQ-2043', name:'REQ-2043　住所変更依頼（自動OK／照合で差異検出の例）',
- meta:'依頼書種別：取引先マスタ_住所変更／受付 2026-09-12',
- fax:'<div class="ttl">取引先　住所変更依頼書</div>'+
+ id:'REQ-2043', name:'REQ-2043　住所変更依頼（自動OK／反映日到来後の照合で差異検出）',
+ meta:'処理区分 2：変更／反映区分 反映予約 2026-10-01／受付 2026-09-12',
+ fax:'<div class="ttl">取引先マスタ　住所変更依頼書</div>'+
   '<div class="row"><div class="k">依頼No</div><div class="v">REQ-2043</div></div>'+
   '<div class="row"><div class="k">申請部門</div><div class="v">営業第1課</div></div>'+
-  '<div class="row"><div class="k">取引先コード</div><div class="v">10711</div></div>'+
+  '<div class="row"><div class="k">処理区分</div><div class="v">2：変更</div></div>'+
+  '<div class="row"><div class="k">反映区分</div><div class="v">反映予約　2026/10/01</div></div>'+
+  '<div class="row"><div class="k">開始日</div><div class="v">2026年10月1日</div></div>'+
+  '<div class="row"><div class="k">会社／取引先コード</div><div class="v">010／10711</div></div>'+
   '<div class="row"><div class="k">取引先名</div><div class="v">株式会社ﾐﾄﾞﾘ製作所</div></div>'+
-  '<div class="row"><div class="k">変更後 所在地</div><div class="v">愛知県名古屋市中村区名駅1-1-4</div></div>'+
-  '<div class="row"><div class="k">適用開始日</div><div class="v">2026年10月1日</div></div>'+
+  '<div class="row"><div class="k">変更後 郵便番号</div><div class="v">541-0041</div></div>'+
+  '<div class="row"><div class="k">変更後 住所</div><div class="v">大阪府大阪市中央区北浜2-1-6</div></div>'+
   '<div class="row"><div class="k">対象システム</div><div class="v">システムA・B・C</div></div>',
- json:'{\n  <span class="k">"依頼No"</span>: <span class="s">"REQ-2043"</span>,\n  <span class="k">"依頼書種別"</span>: <span class="s">"取引先マスタ_住所変更"</span>,\n  <span class="k">"抽出項目"</span>: {\n    <span class="k">"取引先コード"</span>: { <span class="k">"値"</span>: <span class="s">"10711"</span>, <span class="k">"信頼度"</span>: <span class="n">0.99</span> },\n    <span class="k">"取引先名"</span>:     { <span class="k">"値"</span>: <span class="s">"株式会社ミドリ製作所"</span>, <span class="k">"信頼度"</span>: <span class="n">0.99</span>, <span class="k">"補正"</span>: <span class="s">"半角カナ→全角"</span> },\n    <span class="k">"所在地"</span>:       { <span class="k">"値"</span>: <span class="s">"愛知県名古屋市中村区名駅1-1-4"</span>, <span class="k">"信頼度"</span>: <span class="n">0.98</span> },\n    <span class="k">"適用開始日"</span>:   { <span class="k">"値"</span>: <span class="s">"2026-10-01"</span>, <span class="k">"信頼度"</span>: <span class="n">0.99</span> },\n    <span class="k">"対象システム"</span>: { <span class="k">"値"</span>: [<span class="s">"システムA"</span>,<span class="s">"システムB"</span>,<span class="s">"システムC"</span>], <span class="k">"信頼度"</span>: <span class="n">0.97</span> }\n  }\n}',
+ json:'{\n  <span class="k">"依頼No"</span>: <span class="s">"REQ-2043"</span>,\n  <span class="k">"依頼書種別"</span>: <span class="s">"取引先マスタ_住所変更"</span>,\n  <span class="k">"抽出項目"</span>: {\n    <span class="k">"処理区分"</span>:   { <span class="k">"値"</span>: <span class="s">"2:変更"</span>, <span class="k">"信頼度"</span>: <span class="n">0.99</span> },\n    <span class="k">"反映区分"</span>:   { <span class="k">"値"</span>: <span class="s">"反映予約"</span>, <span class="k">"信頼度"</span>: <span class="n">0.98</span> },\n    <span class="k">"反映日"</span>:     { <span class="k">"値"</span>: <span class="s">"2026-10-01"</span>, <span class="k">"信頼度"</span>: <span class="n">0.99</span> },\n    <span class="k">"取引先コード"</span>:   { <span class="k">"値"</span>: <span class="s">"10711"</span>, <span class="k">"信頼度"</span>: <span class="n">0.99</span> },\n    <span class="k">"取引先名"</span>:   { <span class="k">"値"</span>: <span class="s">"株式会社ミドリ製作所"</span>, <span class="k">"信頼度"</span>: <span class="n">0.99</span>, <span class="k">"補正"</span>: <span class="s">"半角カナ→全角"</span> },\n    <span class="k">"郵便番号"</span>:   { <span class="k">"値"</span>: <span class="s">"541-0041"</span>, <span class="k">"信頼度"</span>: <span class="n">0.99</span> },\n    <span class="k">"住所"</span>:       { <span class="k">"値"</span>: <span class="s">"大阪府大阪市中央区北浜2-1-6"</span>, <span class="k">"信頼度"</span>: <span class="n">0.98</span> },\n    <span class="k">"対象システム"</span>: { <span class="k">"値"</span>: [<span class="s">"システムA"</span>,<span class="s">"システムB"</span>,<span class="s">"システムC"</span>], <span class="k">"信頼度"</span>: <span class="n">0.97</span> }\n  }\n}',
  checks:[
   ['ok','R1','必須項目の充足','記入漏れなし'],
   ['wr','W01','表記ゆれを自動補正','「株式会社ﾐﾄﾞﾘ製作所」→「株式会社ミドリ製作所」'],
   ['ok','R2','コード体系・型・桁','規定どおり'],
   ['ok','R3','マスタ存在','取引先コード 10711 は3システムすべてに存在'],
-  ['ok','R4','項目間の論理整合','適用開始日は受付日以降。矛盾なし'],
-  ['ok','R5','関連登録の展開','判定表の該当条件なし。3システムの住所更新のみで充足'],
+  ['ok','R4','反映日・開始日・履歴の整合','反映予約日＝開始日＝2026-10-01。受付日より未来で、既存履歴とも重複しない'],
+  ['ok','R4','郵便番号と住所の整合','541-0041＝大阪市中央区北浜。郵便番号マスタと一致'],
+  ['ok','R5','関連登録の展開','判定表の該当条件なし。住所のみの変更は関連マスタ①・関連マスタ②に影響しない'],
   ['ok','R6','承認経路・権限','成立']],
  verdict:['ok','OK　人の確認は不要','警告1件（自動補正済み）　→　登録工程へ'],
- match:'<div style="font-size:12.5px;line-height:1.9"><b>登録完了後、基幹3システムと突合した結果：</b><br>'+
-  '<span class="pill p-ok">一致</span> システムA（販売）　所在地＝愛知県名古屋市中村区名駅1-1-4<br>'+
-  '<span class="pill p-ng">差異</span> システムB（会計）　所在地＝<b style="color:#a4262c">愛知県名古屋市中村区名駅3-28-12（旧住所のまま）</b><br>'+
-  '<span class="pill p-ok">一致</span> システムC（生産）　所在地＝愛知県名古屋市中村区名駅1-1-4<br>'+
-  '<div class="callout red" style="margin-top:10px">理由コード <b>M01</b>：登録漏れを検出し、例外キューへ差し戻しました。<b>現状の運用では発見できていない種類の不備です。</b></div></div>'
+ match:'<div style="font-size:12.5px;line-height:1.9"><b>反映日 2026-10-01 の到来後に、基幹3システムと突合した結果：</b><br>'+
+  '<span class="pill p-ok">一致</span> システムA（販売）　住所＝大阪府大阪市中央区北浜2-1-6<br>'+
+  '<span class="pill p-ng">差異</span> システムB（会計）　住所＝<b style="color:#a4262c">大阪府大阪市中央区北浜4-7-28（旧住所のまま）</b><br>'+
+  '<span class="pill p-ok">一致</span> システムC（生産）　住所＝大阪府大阪市中央区北浜2-1-6<br>'+
+  '<div class="callout red" style="margin-top:10px">理由コード <b>M01</b>：登録漏れを検出し、例外キューへ差し戻しました。<b>現状の運用では発見できていない種類の不備です。</b></div>'+
+  '<div class="callout blue" style="margin-top:8px"><b>設計上の注意：</b>予約反映のレコードは反映日まで基幹側に現れません。<b>照合は「反映日基準」で実行しないと、予約分がすべて差異として誤検知されます。</b></div></div>'
 }];
 
 /* ===== デモ制御 ===== */
